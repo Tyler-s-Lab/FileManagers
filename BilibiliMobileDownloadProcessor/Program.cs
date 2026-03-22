@@ -9,9 +9,12 @@ namespace BilibiliMobileDownloadProcessor {
 		static void Main(string[] args) {
 			Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-			
 			if (args.Length != 1) {
+#if DEBUG
+				args = args.Append(Console.ReadLine()).ToArray() ?? [];
+#else
 				return;
+#endif
 			}
 
 			var path = args[0];
@@ -74,7 +77,7 @@ namespace BilibiliMobileDownloadProcessor {
 			string srcDir = Path.Combine(pathPart, quality);
 			string srcAudio = Path.Combine(srcDir, "audio.m4s");
 			string srcVideo = Path.Combine(srcDir, "video.m4s");
-			if(!Directory.Exists(srcDir) || !File.Exists(srcAudio) || !File.Exists(srcVideo)) {
+			if (!Directory.Exists(srcDir) || !File.Exists(srcAudio) || !File.Exists(srcVideo)) {
 				Console.WriteLine($"[Error] Failed to open source directory. {pathPart}.");
 				return;
 			}
@@ -102,7 +105,7 @@ namespace BilibiliMobileDownloadProcessor {
 			string pathFile = pid is null ? pname ?? "" : $"[{pid}]{(pname is null ? "" : $" {pname}")}";
 			pathFile = Path.Combine(pathVd, pathFile + ".mp4");
 
-			if(!ProcOne(srcAudio, srcVideo, pathFile)) {
+			if (!ProcOne(srcAudio, srcVideo, pathFile)) {
 				Console.WriteLine($"[Error] Failed to process. {pathPart}.");
 			}
 

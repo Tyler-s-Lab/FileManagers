@@ -131,18 +131,26 @@ namespace BilibiliMobileDownloadProcessor {
 
 			// 开始 处理 XML
 			string owner_id = root.Element("owner_id")?.Value ?? throw new Exception($"Entry info - owner_id not found.");
+			owner_id = owner_id.Replace("\"", "");
 			string avid = root.Element("avid")?.Value ?? throw new Exception($"Entry info - avid not found.");
+			avid = avid.Replace("\"", "");
 			string pagenum = root.Element("page_data")?.Element("page")?.Value ?? throw new Exception($"Entry info - page_data - page not found.");
+			pagenum = pagenum.Replace("\"", "");
 			string cid = root.Element("page_data")?.Element("cid")?.Value ?? throw new Exception($"Entry info - page_data - cid not found.");
+			cid = cid.Replace("\"", "");
 
 			string? title = root.Element("title")?.Value;
+			title = title?.Replace("\"", "");
 			string? pname = root.Element("page_data")?.Element("part")?.Value;
+			pname = pname?.Replace("\"", "");
 			string? bvid = root.Element("bvid")?.Value;
 			if (string.IsNullOrEmpty(bvid)) {
 				bvid = null;
 			}
+			bvid = bvid?.Replace("\"", "");
 
 			string? owner = root.Element("owner_name")?.Value;
+			owner = owner?.Replace("\"", "");
 
 			string srcAudio, srcVideo;
 			string? srcCover;
