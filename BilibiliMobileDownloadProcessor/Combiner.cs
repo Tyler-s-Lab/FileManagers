@@ -33,7 +33,7 @@ namespace BilibiliMobileDownloadProcessor {
 
 			foreach (var item in items) {
 				var res = Combine(item, dir);
-				if(res == null) {
+				if (res == null) {
 					Console.WriteLine($"[Error] Failed to process {Path.GetDirectoryName(Path.GetDirectoryName(item.VideoPath))}.");
 				}
 				else {
@@ -47,8 +47,8 @@ namespace BilibiliMobileDownloadProcessor {
 				Path.Combine(
 					path,
 					"bilibili",
-					$"[{item.OwnerId}]{item.OwnerName}",
-					$"[{item.AvId}]{((item.BvId != null) ? item.Title : item.PartName)}[{item.BvId}]",
+					$"[{item.OwnerId}]{ReplaceInvalidCharForPath(item.OwnerName)}",
+					$"[{item.AvId}]{ReplaceInvalidCharForPath((item.BvId != null) ? item.Title : item.PartName)}[{ReplaceInvalidCharForPath(item.BvId)}]",
 					$"{item.PartNum}.mp4"
 				);
 			finalpath = PathSanitizer.SanitizePath(finalpath, false);
@@ -63,10 +63,10 @@ namespace BilibiliMobileDownloadProcessor {
 					$"-i \"{item.CoverPath}\" " +
 					$"-map 0:v:0 -map 1:a:0 -map 2 " +
 					$"-c:v copy -c:a copy " +
-					$"-metadata title=\"{item.PartName}\" " +
-					$"-metadata album=\"{item.Title}\" " +
-					$"-metadata artist=\"{item.OwnerName}\" " +
-					$"-metadata description=\"avid:{item.AvId},bvid:{item.BvId},owner_id:{item.OwnerId},cid:{item.CId}\" " +
+					$"-metadata title=\"{ReplaceInvalidCharForCommandLine(item.PartName)}\" " +
+					$"-metadata album=\"{ReplaceInvalidCharForCommandLine(item.Title)}\" " +
+					$"-metadata artist=\"{ReplaceInvalidCharForCommandLine(item.OwnerName)}\" " +
+					$"-metadata description=\"avid:{item.AvId},bvid:{ReplaceInvalidCharForCommandLine(item.BvId)},owner_id:{item.OwnerId},cid:{item.CId}\" " +
 					$"-disposition:2 attached_pic " +
 					$"-movflags +faststart " +
 					$"\"{finalpath}\" " +
@@ -78,10 +78,10 @@ namespace BilibiliMobileDownloadProcessor {
 					$"-i \"{item.AudioPath}\" " +
 					$"-map 0:v:0 -map 1:a:0 " +
 					$"-c:v copy -c:a copy " +
-					$"-metadata title=\"{item.PartName}\" " +
-					$"-metadata album=\"{item.Title}\" " +
-					$"-metadata artist=\"{item.OwnerName}\" " +
-					$"-metadata description=\"avid:{item.AvId},bvid:{item.BvId},owner_id:{item.OwnerId},cid:{item.CId}\" " +
+					$"-metadata title=\"{ReplaceInvalidCharForCommandLine(item.PartName)}\" " +
+					$"-metadata album=\"{ReplaceInvalidCharForCommandLine(item.Title)}\" " +
+					$"-metadata artist=\"{ReplaceInvalidCharForCommandLine(item.OwnerName)}\" " +
+					$"-metadata description=\"avid:{item.AvId},bvid:{ReplaceInvalidCharForCommandLine(item.BvId)},owner_id:{item.OwnerId},cid:{item.CId}\" " +
 					$"-movflags +faststart " +
 					$"\"{finalpath}\" " +
 					$"-v warning";
@@ -131,31 +131,24 @@ namespace BilibiliMobileDownloadProcessor {
 
 			// 开始 处理 XML
 			string owner_id = root.Element("owner_id")?.Value ?? throw new Exception($"Entry info - owner_id not found.");
-			owner_id = owner_id.Replace("\"", "");
 			string avid = root.Element("avid")?.Value ?? throw new Exception($"Entry info - avid not found.");
-			avid = avid.Replace("\"", "");
 			string pagenum = root.Element("page_data")?.Element("page")?.Value ?? throw new Exception($"Entry info - page_data - page not found.");
-			pagenum = pagenum.Replace("\"", "");
 			string cid = root.Element("page_data")?.Element("cid")?.Value ?? throw new Exception($"Entry info - page_data - cid not found.");
-			cid = cid.Replace("\"", "");
 
 			string? title = root.Element("title")?.Value;
-			title = title?.Replace("\"", "");
 			string? pname = root.Element("page_data")?.Element("part")?.Value;
-			pname = pname?.Replace("\"", "");
 			string? bvid = root.Element("bvid")?.Value;
 			if (string.IsNullOrEmpty(bvid)) {
 				bvid = null;
 			}
-			bvid = bvid?.Replace("\"", "");
 
 			string? owner = root.Element("owner_name")?.Value;
-			owner = owner?.Replace("\"", "");
 
 			string srcAudio, srcVideo;
 			string? srcCover;
 			{
 				string quality = (root.Element("type_tag")?.Value) ?? throw new Exception($"Entry info - type_tag not found.");
+				quality = RemoveCharNotNumeric(quality);
 				string partPath = Path.GetDirectoryName(path) ?? "";
 				string srcDir = Path.Combine(partPath, quality);
 				if (!Directory.Exists(srcDir)) {
@@ -176,10 +169,10 @@ namespace BilibiliMobileDownloadProcessor {
 			}
 
 			return new Item {
-				OwnerId = owner_id,
-				AvId = avid,
-				PartNum = pagenum,
-				CId = cid,
+				OwnerId = RemoveCharNotNumeric(owner_id),
+				AvId = RemoveCharNotNumeric(avid),
+				PartNum = RemoveCharNotNumeric(pagenum),
+				CId = RemoveCharNotNumeric(cid),
 
 				Title = title,
 				PartName = pname,
@@ -219,6 +212,26 @@ namespace BilibiliMobileDownloadProcessor {
 			if (folder == null)
 				return;
 			EnsureFolderExisting(folder);
+		}
+
+		internal static string? ReplaceInvalidCharForCommandLine(string? input) {
+			// 替换命令行中可能引起问题的字符
+			return input?.Replace("\"", "\\\"")?.Replace("'", "\\'");
+		}
+
+		internal static string RemoveCharNotNumeric(string? input) {
+			return new string(input?.Where(char.IsDigit).ToArray()) ?? throw new InvalidDataException("Invalid Number");
+		}
+
+		internal static string? ReplaceInvalidCharForPath(string? input) {
+			if (input == null)
+				return null;
+			input =
+				input.Replace('\"', '＂').Replace('\'', '＇')
+				.Replace('*', '＊').Replace('/', '／').Replace('\\', '＼').Replace(':', '：')
+				.Replace('?', '？').Replace('<', '＜').Replace('>', '＞').Replace('|', '｜');
+			char[] invalidChars = Path.GetInvalidFileNameChars();
+			return new string([.. input.Select(ch => invalidChars.Contains(ch) ? '_' : ch)]);
 		}
 
 	}
