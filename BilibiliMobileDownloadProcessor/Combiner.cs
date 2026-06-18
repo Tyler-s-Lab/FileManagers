@@ -209,7 +209,6 @@ namespace BilibiliMobileDownloadProcessor {
 			FilePath? srcCover;
 			{
 				string quality = (root.Element("type_tag")?.Value) ?? throw new Exception($"Entry info - type_tag not found.");
-				quality = RemoveNonnumeric(quality) ?? "";
 				if (string.IsNullOrEmpty(quality)) {
 					throw new Exception($"Entry info - quality is invalid.");
 				}
@@ -235,16 +234,16 @@ namespace BilibiliMobileDownloadProcessor {
 			}
 
 			return new Item {
-				OwnerId = long.Parse(RemoveNonnumeric(owner_id)),
+				OwnerId = long.Parse(owner_id),
 				OwnerName = owner_name,
 
-				AvId = long.Parse(RemoveNonnumeric(avid)),
+				AvId = long.Parse(avid),
 				BvId = bvid,
 				Title = title,
 
-				PartNum = long.Parse(RemoveNonnumeric(pagenum)),
+				PartNum = long.Parse(pagenum),
 				PartName = pagename,
-				CId = long.Parse(RemoveNonnumeric(pagecid)),
+				CId = long.Parse(pagecid),
 
 				isEp = isEp,
 
@@ -253,9 +252,5 @@ namespace BilibiliMobileDownloadProcessor {
 				CoverPath = srcCover,
 			};
 		}
-
-		[return: NotNullIfNotNull(nameof(input))]
-		public static string? RemoveNonnumeric(string? input) => StringHelper.RemoveCharNotNumeric(input);
-
 	}
 }
