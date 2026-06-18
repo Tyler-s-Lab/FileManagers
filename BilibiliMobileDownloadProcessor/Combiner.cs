@@ -8,16 +8,16 @@ namespace BilibiliMobileDownloadProcessor {
 	internal static class Combiner {
 
 		public struct Item {
-			public string OwnerId;
+			public long OwnerId;
 			public string? OwnerName;
 
-			public string AvId;
+			public long AvId;
 			public string? BvId;
 			public string? Title;
 
-			public string PartNum;
+			public long PartNum;
 			public string? PartName;
-			public string CId;
+			public long CId;
 
 			public bool isEp;
 
@@ -54,21 +54,18 @@ namespace BilibiliMobileDownloadProcessor {
 
 		internal static string? Combine(Item item, FilePath path) {
 			var finalpath = path / "bilibili";
-			//if (item.OwnerId != "0" || !string.IsNullOrEmpty(item.OwnerName)) {
+			//if (item.OwnerId != 0 || !string.IsNullOrEmpty(item.OwnerName)) {
 			finalpath /= $"[{item.OwnerId}]{item.OwnerName}";
 			//}
 			string work_name;
 			string part_name;
-			if (int.TryParse(item.PartNum, out int epn) is true) {
-				item.PartNum = $"{epn:D3}";
-			}
 			if (item.isEp) {
 				work_name = item.Title ?? "_";
-				part_name = $"{item.PartNum}.{item.PartName}";
+				part_name = $"{item.PartNum:D3}.{item.PartName}";
 			}
 			else {
 				work_name = $"[{item.AvId}]{((item.BvId != null) ? item.Title : item.PartName)}";
-				part_name = $"{item.PartNum}";
+				part_name = $"{item.PartNum:D3}";
 			}
 			if (work_name.Length > 81) {
 				work_name = work_name[..80];
@@ -123,7 +120,7 @@ namespace BilibiliMobileDownloadProcessor {
 					//Logger.Info(string.Concat(process.StartInfo.ArgumentList));
 					process.WaitForExit();
 					res = true;
-			}
+				}
 			}
 
 			if (res)
@@ -238,16 +235,16 @@ namespace BilibiliMobileDownloadProcessor {
 			}
 
 			return new Item {
-				OwnerId = RemoveNonnumeric(owner_id) ?? "",
+				OwnerId = long.Parse(RemoveNonnumeric(owner_id)),
 				OwnerName = owner_name,
 
-				AvId = RemoveNonnumeric(avid) ?? "",
+				AvId = long.Parse(RemoveNonnumeric(avid)),
 				BvId = bvid,
 				Title = title,
 
-				PartNum = RemoveNonnumeric(pagenum) ?? "",
+				PartNum = long.Parse(RemoveNonnumeric(pagenum)),
 				PartName = pagename,
-				CId = RemoveNonnumeric(pagecid) ?? "",
+				CId = long.Parse(RemoveNonnumeric(pagecid)),
 
 				isEp = isEp,
 
