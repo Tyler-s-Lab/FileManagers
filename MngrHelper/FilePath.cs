@@ -75,6 +75,9 @@ namespace MngrHelper {
 			_path = System.IO.Path.GetDirectoryName(_path) ?? _path;
 		}
 
+		public override string ToString() {
+			return "\"" + _path + "\"";
+		}
 
 	}
 }

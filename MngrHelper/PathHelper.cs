@@ -239,7 +239,7 @@ namespace MngrHelper {
 				Logger.Error($"Failed to EnsureFileCanExsist because filePath is root.{Environment.NewLine}{Environment.StackTrace}");
 				return false;
 			}
-			if (!CreateAllDirectory(--filePath)) {
+			if (!CreateAllDirectory(filePath.Parent)) {
 				Logger.Error($"Failed to EnsureFileCanExsist because CreateAllDirectory failed.{Environment.NewLine}{Environment.StackTrace}");
 				return false;
 			}
