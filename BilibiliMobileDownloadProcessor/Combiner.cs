@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Xml.Linq;
+using MngrHelper;
 
 namespace BilibiliMobileDownloadProcessor {
 	internal static class Combiner {

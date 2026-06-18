@@ -1,13 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.4.11612.150 stable
+VisualStudioVersion = 18.4.11612.150
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ExamWatchedArchiver", "ExamWatchedArchiver\ExamWatchedArchiver.vcxproj", "{485AD44C-FFB3-4B8D-B19D-607846010CB4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BilibiliMobileDownloadProcessor", "BilibiliMobileDownloadProcessor\BilibiliMobileDownloadProcessor.csproj", "{47B56728-B0E3-F2F1-D8CC-C3B54369A111}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FindPicInVideos", "FindPicInVideos\FindPicInVideos.vcxproj", "{FAAD7A0C-3B5F-4055-A3A7-F617334FC397}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MngrHelper", "MngrHelper\MngrHelper.csproj", "{28C9938D-B71F-4A8D-8976-8E4B639F4211}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -55,6 +57,18 @@ Global
 		{FAAD7A0C-3B5F-4055-A3A7-F617334FC397}.Release|x64.Build.0 = Release|x64
 		{FAAD7A0C-3B5F-4055-A3A7-F617334FC397}.Release|x86.ActiveCfg = Release|Win32
 		{FAAD7A0C-3B5F-4055-A3A7-F617334FC397}.Release|x86.Build.0 = Release|Win32
+		{28C9938D-B71F-4A8D-8976-8E4B639F4211}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{28C9938D-B71F-4A8D-8976-8E4B639F4211}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{28C9938D-B71F-4A8D-8976-8E4B639F4211}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{28C9938D-B71F-4A8D-8976-8E4B639F4211}.Debug|x64.Build.0 = Debug|Any CPU
+		{28C9938D-B71F-4A8D-8976-8E4B639F4211}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{28C9938D-B71F-4A8D-8976-8E4B639F4211}.Debug|x86.Build.0 = Debug|Any CPU
+		{28C9938D-B71F-4A8D-8976-8E4B639F4211}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{28C9938D-B71F-4A8D-8976-8E4B639F4211}.Release|Any CPU.Build.0 = Release|Any CPU
+		{28C9938D-B71F-4A8D-8976-8E4B639F4211}.Release|x64.ActiveCfg = Release|Any CPU
+		{28C9938D-B71F-4A8D-8976-8E4B639F4211}.Release|x64.Build.0 = Release|Any CPU
+		{28C9938D-B71F-4A8D-8976-8E4B639F4211}.Release|x86.ActiveCfg = Release|Any CPU
+		{28C9938D-B71F-4A8D-8976-8E4B639F4211}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
