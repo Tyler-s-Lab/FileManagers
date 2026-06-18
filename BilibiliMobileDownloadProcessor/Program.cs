@@ -1,8 +1,4 @@
-﻿using Newtonsoft.Json;
-using System.Diagnostics;
-using System.Xml.Linq;
-
-namespace BilibiliMobileDownloadProcessor {
+﻿namespace BilibiliMobileDownloadProcessor {
 
 	internal class Program {
 
@@ -27,7 +23,7 @@ namespace BilibiliMobileDownloadProcessor {
 				}
 
 				if (path == null || !Directory.Exists(path)) {
-					MngrHelper.Logger.Error("Path does not exist.");
+					MngrHelper.Logger.Error($"Path does not exist: \"{path}\"");
 					break;
 				}
 
@@ -41,35 +37,5 @@ namespace BilibiliMobileDownloadProcessor {
 
 			return;
 		}
-
-		static void RemoveEmptyCover() {
-			Console.WriteLine("This script removes all empty cover.jpg files.");
-
-			var entryFiles = Directory.EnumerateFiles(
-				@"D:\download",
-				"cover.jpg",
-				SearchOption.AllDirectories
-			);
-
-			foreach (var item in entryFiles) {
-				if (!File.Exists(item)) {
-					continue;
-				}
-
-				FileInfo fileInfo = new(item);
-
-				if (fileInfo.Length == 0) {
-					Console.WriteLine($"DEL {item}");
-					File.Delete(item);
-				}
-				else {
-					Console.WriteLine($"OK {item}");
-				}
-
-			}
-			return;
-		}
-
 	}
-
 }

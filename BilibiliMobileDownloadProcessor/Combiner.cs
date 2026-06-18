@@ -1,67 +1,94 @@
-﻿using Newtonsoft.Json;
+﻿using MngrHelper;
+using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Xml.Linq;
-using MngrHelper;
 
 namespace BilibiliMobileDownloadProcessor {
 	internal static class Combiner {
 
 		public struct Item {
 			public string OwnerId;
-			public string AvId;
-			public string PartNum;
-			public string CId;
-
-			public string? Title;
-			public string? PartName;
-			public string? BvId;
 			public string? OwnerName;
 
-			public string VideoPath;
-			public string AudioPath;
-			public string? CoverPath;
+			public string AvId;
+			public string? BvId;
+			public string? Title;
+
+			public string PartNum;
+			public string? PartName;
+			public string CId;
+
+			public bool isEp;
+
+			public FilePath VideoPath;
+			public FilePath AudioPath;
+			public FilePath? CoverPath;
 		}
 
 
 		public static void Process(string path) {
 			if (!Path.Exists(path)) {
+				Logger.Error("Provided directory does not exist.");
+				return;
+			}
+
+			FilePath ppath = new(path);
+			if (ppath.IsRoot()) {
+				Logger.Error("Could not get target directory.");
 				return;
 			}
 
 			var items = Scan([path]);
 
-			string dir = Path.GetDirectoryName(path) ?? throw new Exception("Could not get target directory.");
-
 			foreach (var item in items) {
-				var res = Combine(item, dir);
+				var res = Combine(item, ppath.Parent);
 				if (res == null) {
-					Console.WriteLine($"[Error] Failed to process {Path.GetDirectoryName(Path.GetDirectoryName(item.VideoPath))}.");
+					Logger.Error($"Failed to process {item.VideoPath.Parent.Parent}.");
 				}
 				else {
-					Console.WriteLine($"Success: '{Path.GetDirectoryName(Path.GetDirectoryName(item.VideoPath))}' to '{res}'.");
+					Logger.Success($"{item.VideoPath.Parent.Parent} to \"{res}\".");
 				}
 			}
 		}
 
-		internal static string? Combine(Item item, string path) {
-			string finalpath =
-				Path.Combine(
-					path,
-					"bilibili",
-					$"[{item.OwnerId}]{ReplaceInvalidCharForPath(item.OwnerName)}",
-					$"[{item.AvId}]{ReplaceInvalidCharForPath((item.BvId != null) ? item.Title : item.PartName)}[{ReplaceInvalidCharForPath(item.BvId)}]",
-					$"{item.PartNum}.mp4"
-				);
-			finalpath = PathSanitizer.SanitizePath(finalpath, false);
-			EnsureFileCanExsist(finalpath);
+		internal static string? Combine(Item item, FilePath path) {
+			var finalpath = path / "bilibili";
+			//if (item.OwnerId != "0" || !string.IsNullOrEmpty(item.OwnerName)) {
+			finalpath /= $"[{item.OwnerId}]{item.OwnerName}";
+			//}
+			string work_name;
+			string part_name;
+			if (int.TryParse(item.PartNum, out int epn) is true) {
+				item.PartNum = $"{epn:D3}";
+			}
+			if (item.isEp) {
+				work_name = item.Title ?? "_";
+				part_name = $"{item.PartNum}.{item.PartName}";
+			}
+			else {
+				work_name = $"[{item.AvId}]{((item.BvId != null) ? item.Title : item.PartName)}";
+				part_name = $"{item.PartNum}";
+			}
+			if (work_name.Length > 81) {
+				work_name = work_name[..80];
+				work_name += "…";
+			}
+			if (part_name.Length > 81) {
+				part_name = part_name[..80];
+				part_name += "…";
+			}
+			finalpath /= work_name;
+			finalpath /= $"{part_name}.mp4";
+
+			PathHelper.EnsureFileCanExsist(finalpath);
 
 			Process process = new();
 			process.StartInfo.FileName = "ffmpeg.exe";
 			if (item.CoverPath != null) {
 				process.StartInfo.Arguments =
-					$"-i \"{item.VideoPath}\" " +
-					$"-i \"{item.AudioPath}\" " +
-					$"-i \"{item.CoverPath}\" " +
+					$"-i {item.VideoPath} " +
+					$"-i {item.AudioPath} " +
+					$"-i {item.CoverPath} " +
 					$"-map 0:v:0 -map 1:a:0 -map 2 " +
 					$"-c:v copy -c:a copy " +
 					$"-metadata title=\"{ReplaceInvalidCharForCommandLine(item.PartName)}\" " +
@@ -70,13 +97,13 @@ namespace BilibiliMobileDownloadProcessor {
 					$"-metadata description=\"avid:{item.AvId},bvid:{ReplaceInvalidCharForCommandLine(item.BvId)},owner_id:{item.OwnerId},cid:{item.CId}\" " +
 					$"-disposition:2 attached_pic " +
 					$"-movflags +faststart " +
-					$"\"{finalpath}\" " +
+					$"{finalpath} " +
 					$"-v warning";
 			}
 			else {
 				process.StartInfo.Arguments =
-					$"-i \"{item.VideoPath}\" " +
-					$"-i \"{item.AudioPath}\" " +
+					$"-i {item.VideoPath} " +
+					$"-i {item.AudioPath} " +
 					$"-map 0:v:0 -map 1:a:0 " +
 					$"-c:v copy -c:a copy " +
 					$"-metadata title=\"{ReplaceInvalidCharForCommandLine(item.PartName)}\" " +
@@ -84,16 +111,15 @@ namespace BilibiliMobileDownloadProcessor {
 					$"-metadata artist=\"{ReplaceInvalidCharForCommandLine(item.OwnerName)}\" " +
 					$"-metadata description=\"avid:{item.AvId},bvid:{ReplaceInvalidCharForCommandLine(item.BvId)},owner_id:{item.OwnerId},cid:{item.CId}\" " +
 					$"-movflags +faststart " +
-					$"\"{finalpath}\" " +
+					$"{finalpath} " +
 					$"-v warning";
 			}
-
-			//Console.WriteLine(process.StartInfo.Arguments);
+			//Logger.Info(process.StartInfo.Arguments);
 
 			bool res = process.Start();
 			if (res) {
 				process.WaitForExit();
-				return finalpath;
+				return finalpath.Path;
 			}
 			return null;
 		}
@@ -110,10 +136,12 @@ namespace BilibiliMobileDownloadProcessor {
 				foreach (var item in entryFiles) {
 					Item? res = null;
 					try {
-						res = ReadEntry(item);
+						FilePath itempath = new(item);
+						res = ReadEntry(itempath);
 					}
 					catch (Exception ex) {
-						Console.WriteLine($"[Error] {ex}\n\tWhen processing '{item}'.");
+						Logger.Exception(ex, true);
+						Logger.Error($"Failed to process '{item}'.");
 					}
 					if (res is Item ret) {
 						yield return ret;
@@ -122,63 +150,96 @@ namespace BilibiliMobileDownloadProcessor {
 			}
 		}
 
-		internal static Item ReadEntry(string path) {
+		internal static Item ReadEntry(FilePath path) {
 			// JSON 转化为 XML
 			XElement root;
-			using (var streamReader = new StreamReader(new FileStream(path, FileMode.Open, FileAccess.Read))) {
+			using (var streamReader = new StreamReader(new FileStream(path.Path, FileMode.Open, FileAccess.Read))) {
 				var json = streamReader.ReadToEnd();
 				root = (JsonConvert.DeserializeXNode(json, "Root")?.Root) ?? throw new Exception($"Failed to read json.");
 			}
 
 			// 开始 处理 XML
 			string owner_id = root.Element("owner_id")?.Value ?? throw new Exception($"Entry info - owner_id not found.");
-			string avid = root.Element("avid")?.Value ?? throw new Exception($"Entry info - avid not found.");
-			string pagenum = root.Element("page_data")?.Element("page")?.Value ?? throw new Exception($"Entry info - page_data - page not found.");
-			string cid = root.Element("page_data")?.Element("cid")?.Value ?? throw new Exception($"Entry info - page_data - cid not found.");
+			string? owner_name = root.Element("owner_name")?.Value;
 
-			string? title = root.Element("title")?.Value;
-			string? pname = root.Element("page_data")?.Element("part")?.Value;
+			string avid = root.Element("avid")?.Value ?? throw new Exception($"Entry info - avid not found.");
 			string? bvid = root.Element("bvid")?.Value;
-			if (string.IsNullOrEmpty(bvid)) {
-				bvid = null;
+			string? title = root.Element("title")?.Value;
+
+			var page_data = root.Element("page_data");
+			var ep_data = root.Element("ep");
+			if (string.IsNullOrEmpty(page_data?.Value)) { page_data = null; }
+			if (string.IsNullOrEmpty(ep_data?.Value)) { ep_data = null; }
+			string? pagenum = null;
+			string? pagename = null;
+			string? pagecid = null;
+			bool isEp = false;
+			if (page_data == null && ep_data == null) {
+				throw new Exception($"Entry info - page_data AND ep not found.");
+			}
+			else if (page_data != null && ep_data != null) {
+				throw new Exception($"Entry info - page_data AND ep both exists.");
+			}
+			else {
+				if (page_data != null) {
+					pagenum = page_data.Element("page")?.Value;
+					pagename = page_data.Element("part")?.Value;
+					pagecid = page_data.Element("cid")?.Value;
+				}
+				if (ep_data != null) {
+					isEp = true;
+					pagenum ??= ep_data.Element("index")?.Value;
+					pagename ??= ep_data.Element("index_title")?.Value;
+					pagecid ??= ep_data.Element("episode_id")?.Value;
+				}
+			}
+			if (pagenum == null) {
+				throw new Exception($"Entry info - page_data-page AND ep-index not found.");
+			}
+			if (pagecid == null) {
+				throw new Exception($"Entry info - page_data-cid AND ep-episode_id not found.");
 			}
 
-			string? owner = root.Element("owner_name")?.Value;
-
-			string srcAudio, srcVideo;
-			string? srcCover;
+			// 构造 媒体文件路径
+			FilePath srcAudio, srcVideo;
+			FilePath? srcCover;
 			{
 				string quality = (root.Element("type_tag")?.Value) ?? throw new Exception($"Entry info - type_tag not found.");
 				quality = RemoveCharNotNumeric(quality);
-				string partPath = Path.GetDirectoryName(path) ?? "";
-				string srcDir = Path.Combine(partPath, quality);
-				if (!Directory.Exists(srcDir)) {
-					throw new Exception($"Source directory not exists: {srcDir}.");
+
+				var partPath = path.Parent;
+				var srcDir = partPath / quality;
+
+				if (!Directory.Exists(srcDir.Path)) {
+					throw new Exception($"Source directory not exists: '{srcDir}'.");
 				}
-				srcAudio = Path.Combine(srcDir, "audio.m4s");
-				srcVideo = Path.Combine(srcDir, "video.m4s");
-				srcCover = Path.Combine(partPath, "cover.jpg");
+				srcAudio = srcDir / "audio.m4s";
+				srcVideo = srcDir / "video.m4s";
+				srcCover = partPath / "cover.jpg";
 			}
-			if (!File.Exists(srcAudio)) {
-				throw new Exception($"Source media not exists: {srcAudio}.");
+			if (!File.Exists(srcAudio.Path)) {
+				throw new Exception($"Source media not exists: '{srcAudio}'.");
 			}
-			if (!File.Exists(srcVideo)) {
-				throw new Exception($"Source media not exists: {srcVideo}.");
+			if (!File.Exists(srcVideo.Path)) {
+				throw new Exception($"Source media not exists: '{srcVideo}'.");
 			}
-			if (!File.Exists(srcCover)) {
+			if (!File.Exists(srcCover.Path) || (new FileInfo(srcCover.Path)).Length == 0) {
 				srcCover = null;
 			}
 
 			return new Item {
 				OwnerId = RemoveCharNotNumeric(owner_id),
-				AvId = RemoveCharNotNumeric(avid),
-				PartNum = RemoveCharNotNumeric(pagenum),
-				CId = RemoveCharNotNumeric(cid),
+				OwnerName = owner_name,
 
-				Title = title,
-				PartName = pname,
+				AvId = RemoveCharNotNumeric(avid),
 				BvId = bvid,
-				OwnerName = owner,
+				Title = title,
+
+				PartNum = RemoveCharNotNumeric(pagenum),
+				PartName = pagename,
+				CId = RemoveCharNotNumeric(pagecid),
+
+				isEp = isEp,
 
 				VideoPath = srcVideo,
 				AudioPath = srcAudio,
@@ -186,34 +247,6 @@ namespace BilibiliMobileDownloadProcessor {
 			};
 		}
 
-		/// <summary>
-		/// 确保给定的目录存在。请在传入前 检查 path是 想要的目录的路径 而不是 想要的文件的路径。
-		/// 该方法会 递归地创建链条上的所有目录。例如传入 C:\DirA\DirB\DirC，而 DirA 不存在，
-		/// 那么该方法会创建 DirA、DirB、DirC 使输入路径可用。
-		/// </summary>
-		/// <param name="dirpath">要求的目录路径</param>
-		/// <exception cref="DirectoryNotFoundException">无法完成任务</exception>
-		internal static void EnsureFolderExisting(string dirpath) {
-			if (Directory.Exists(dirpath))
-				return;
-			string parent = Path.GetDirectoryName(dirpath) ??
-				throw new DirectoryNotFoundException($"Parent of \"{dirpath}\" is not exist!");
-			EnsureFolderExisting(parent);
-			Directory.CreateDirectory(dirpath);
-			return;
-		}
-
-		/// <summary>
-		/// 确保文件可存在（即父目录存在）。
-		/// 递归地创建所有祖先目录。
-		/// </summary>
-		/// <param name="path">指定的路径</param>
-		internal static void EnsureFileCanExsist(string path) {
-			string? folder = Path.GetDirectoryName(path);
-			if (folder == null)
-				return;
-			EnsureFolderExisting(folder);
-		}
 
 		internal static string? ReplaceInvalidCharForCommandLine(string? input) {
 			// 替换命令行中可能引起问题的字符
@@ -221,19 +254,9 @@ namespace BilibiliMobileDownloadProcessor {
 		}
 
 		internal static string RemoveCharNotNumeric(string? input) {
-			return new string(input?.Where(char.IsDigit).ToArray()) ?? throw new InvalidDataException("Invalid Number");
+			return new string(input?.Where(char.IsDigit).ToArray());
 		}
 
-		internal static string? ReplaceInvalidCharForPath(string? input) {
-			if (input == null)
-				return null;
-			input =
-				input.Replace('\"', '＂').Replace('\'', '＇')
-				.Replace('*', '＊').Replace('/', '／').Replace('\\', '＼').Replace(':', '：')
-				.Replace('?', '？').Replace('<', '＜').Replace('>', '＞').Replace('|', '｜');
-			char[] invalidChars = Path.GetInvalidFileNameChars();
-			return new string([.. input.Select(ch => invalidChars.Contains(ch) ? '_' : ch)]);
-		}
 
 	}
 }
