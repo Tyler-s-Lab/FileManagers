@@ -5,11 +5,11 @@
 		static void Main(string[] args) {
 			MngrHelper.Logger.Init();
 
-			MngrHelper.Logger.Info("Cmd lines:");
+			MngrHelper.Logger.Info("Cmd line:");
 			foreach (string s in args) {
 				MngrHelper.Logger.Info($"\t{s}");
 			}
-			MngrHelper.Logger.Info("Cmd End.");
+			MngrHelper.Logger.Info("Cmd end.");
 
 			switch (1) {
 			default:
@@ -30,7 +30,7 @@
 				}
 
 				if (path == null || !Directory.Exists(path)) {
-					MngrHelper.Logger.Error($"Path does not exist: \"{path}\"");
+					MngrHelper.Logger.Error($"Directory does not exist: \"{path}\"");
 					break;
 				}
 

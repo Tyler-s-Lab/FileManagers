@@ -19,7 +19,7 @@ namespace MngrHelper {
 		/// 显示消息并等待用户按任意键继续。
 		/// </summary>
 		public static void Pause() {
-			Console.WriteLine("按任意键继续...");
+			Console.WriteLine("Press any key to continue...");
 			Console.ReadKey();
 		}
 		/// <summary>

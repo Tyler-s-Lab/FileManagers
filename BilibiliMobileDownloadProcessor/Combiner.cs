@@ -44,30 +44,36 @@ namespace BilibiliMobileDownloadProcessor {
 
 		public static void Process(string path) {
 			if (!Path.Exists(path)) {
-				Logger.Error("Provided directory does not exist.");
+				Logger.Error($"Provided directory does not exist: \"{path}\".");
 				return;
 			}
 
 			FilePath ppath = new(path);
 			if (ppath.IsRoot()) {
-				Logger.Error("Could not get target directory.");
+				Logger.Error($"Could not get target directory: {ppath}.");
 				return;
 			}
 
 			var items = Scan([path]);
 
 			foreach (var item in items) {
-				var res = Combine(item, ppath.Parent);
+				FilePath? res = null;
+				try {
+					res = Combine(item, ppath.Parent);
+				}
+				catch (Exception ex) {
+					Logger.Exception(ex, true);
+				}
 				if (res == null) {
-					Logger.Error($"Failed to process {item.VideoPath.Parent.Parent}.");
+					Logger.Error($"Failed to process item {item.VideoPath.Parent.Parent}.");
 				}
 				else {
-					Logger.Success($"{item.VideoPath.Parent.Parent} to \"{res}\".");
+					Logger.Success($"{item.VideoPath.Parent.Parent} to {res}.");
 				}
 			}
 		}
 
-		internal static string? Combine(BiliEntry item, FilePath path) {
+		internal static FilePath? Combine(BiliEntry item, FilePath path) {
 			var finalpath = path / "bilibili";
 			//if (item.OwnerId != 0 || !string.IsNullOrEmpty(item.OwnerName)) {
 			finalpath /= $"[{item.owner_id}]{item.owner_name}";
@@ -93,7 +99,7 @@ namespace BilibiliMobileDownloadProcessor {
 				cid = pd.cid;
 			}
 			else {
-				throw new Exception("ep and page_data are both null.");
+				throw new Exception("ep and page_data are both null");
 			}
 			if (work_name.Length > 81) {
 				work_name = work_name[..80];
@@ -151,9 +157,7 @@ namespace BilibiliMobileDownloadProcessor {
 				}
 			}
 
-			if (res)
-				return finalpath.Path;
-			return null;
+			return res ? finalpath : null;
 		}
 
 
@@ -173,7 +177,7 @@ namespace BilibiliMobileDownloadProcessor {
 					}
 					catch (Exception ex) {
 						Logger.Exception(ex, true);
-						Logger.Error($"Failed to process '{item}'.");
+						Logger.Error($"Failed to read entry '{item}'.");
 					}
 					if (res is BiliEntry ret) {
 						yield return ret;
@@ -199,19 +203,23 @@ namespace BilibiliMobileDownloadProcessor {
 				var srcDir = partPath / entry.type_tag;
 
 				if (!Directory.Exists(srcDir.Path)) {
-					throw new Exception($"Source directory not exists: '{srcDir}'.");
+					throw new Exception($"Source directory not exists: {srcDir}.");
 				}
 				srcAudio = srcDir / "audio.m4s";
 				srcVideo = srcDir / "video.m4s";
 				srcCover = partPath / "cover.jpg";
 			}
 			if (!File.Exists(srcAudio.Path)) {
-				throw new Exception($"Source media not exists: '{srcAudio}'.");
+				throw new Exception($"Source media not exists: {srcAudio}.");
 			}
 			if (!File.Exists(srcVideo.Path)) {
-				throw new Exception($"Source media not exists: '{srcVideo}'.");
+				throw new Exception($"Source media not exists: {srcVideo}.");
 			}
-			if (!File.Exists(srcCover.Path) || (new FileInfo(srcCover.Path)).Length == 0) {
+			if (!File.Exists(srcCover.Path)) {
+				srcCover = null;
+			}
+			else if ((new FileInfo(srcCover.Path)).Length == 0) {
+				Logger.Warning($"Cover file is empty: {srcCover}. Ignoring.");
 				srcCover = null;
 			}
 
