@@ -25,7 +25,7 @@ namespace MngrHelper {
 		/// <summary>
 		/// 以绿色输出 Info 级别的消息（带换行）。
 		/// </summary>
-		public static void Info(string message) => Console.WriteLine(message);
+		public static void Info(string message) => Console.WriteLine("[info] " + message);
 
 		/// <summary>
 		/// 以绿色输出 Info 级别的格式化消息（带换行）。
@@ -36,7 +36,7 @@ namespace MngrHelper {
 		/// <summary>
 		/// 以黄色输出 Warning 级别的消息（带换行）。
 		/// </summary>
-		public static void Warning(string message) => WriteColoredLine(message, ConsoleColor.Yellow);
+		public static void Warning(string message) => WriteColoredLine("[warning] " + message, ConsoleColor.Yellow);
 
 		/// <summary>
 		/// 以黄色输出 Warning 级别的格式化消息（带换行）。
@@ -47,7 +47,7 @@ namespace MngrHelper {
 		/// <summary>
 		/// 以红色输出 Error 级别的消息（带换行）。
 		/// </summary>
-		public static void Error(string message) => WriteColoredLine(message, ConsoleColor.Red);
+		public static void Error(string message) => WriteColoredLine("[error] " + message, ConsoleColor.Red);
 
 		/// <summary>
 		/// 以红色输出 Error 级别的格式化消息（带换行）。
@@ -56,39 +56,41 @@ namespace MngrHelper {
 			=> Error(string.Format(format, args));
 
 		/// <summary>
+		/// 以洋红背景输出 Exception 级别的消息（带换行）。
+		/// </summary>
+		public static void Exception(string message) => WriteColoredLine("[exception] " + message, ConsoleColor.Cyan, ConsoleColor.Magenta);
+
+		/// <summary>
+		/// 以洋红背景输出 Exception 级别的格式化消息（带换行）。
+		/// </summary>
+		public static void Exception(string format, params object[] args)
+			=> Exception(string.Format(format, args));
+
+		/// <summary>
+		/// 自动输出 Exception 级别的消息（带换行）。
+		/// </summary>
+		public static void Exception(Exception e, bool inner = false) {
+			if (e.InnerException != null) {
+				Exception(e.InnerException, true);
+			}
+			if (inner) {
+				Exception($"'{e.GetType()}' occurs because \"{e.Message}\" by '{e.Source}' then ");
+			}
+			else {
+				Exception($"'{e.GetType()}' occurs because \"{e.Message}\" by '{e.Source}'.{Environment.NewLine}{e.StackTrace}.");
+			}
+		}
+
+		/// <summary>
 		/// 以青色输出 Success 级别的消息（带换行）。
 		/// </summary>
-		public static void Success(string message) => WriteColoredLine(message, ConsoleColor.Green);
+		public static void Success(string message) => WriteColoredLine("[success] " + message, ConsoleColor.Green);
 
 		/// <summary>
 		/// 以青色输出 Success 级别的格式化消息（带换行）。
 		/// </summary>
 		public static void Success(string format, params object[] args)
 			=> Success(string.Format(format, args));
-
-		// ----- 不带换行的版本（可选） -----
-
-		/// <summary>
-		/// 以绿色输出 Info 级别的消息（不带换行）。
-		/// </summary>
-		public static void InfoNoNewLine(string message) => Console.WriteLine(message);
-
-		/// <summary>
-		/// 以黄色输出 Warning 级别的消息（不带换行）。
-		/// </summary>
-		public static void WarningNoNewLine(string message) => WriteColored(message, ConsoleColor.Yellow);
-
-		/// <summary>
-		/// 以红色输出 Error 级别的消息（不带换行）。
-		/// </summary>
-		public static void ErrorNoNewLine(string message) => WriteColored(message, ConsoleColor.Red);
-
-		/// <summary>
-		/// 以青色输出 Success 级别的消息（不带换行）。
-		/// </summary>
-		public static void SuccessNoNewLine(string message) => WriteColored(message, ConsoleColor.Green);
-
-		// ----- 私有辅助方法 -----
 
 		private static void WriteColoredLine(string message, ConsoleColor foreground_color, ConsoleColor? background_color = null) {
 			var originalColor = Console.ForegroundColor;
@@ -97,9 +99,10 @@ namespace MngrHelper {
 			if (background_color != null) {
 				Console.BackgroundColor = (ConsoleColor)background_color;
 			}
-			Console.WriteLine(message);
+			Console.Write(message);
 			Console.BackgroundColor = originalBackgroundColor;
 			Console.ForegroundColor = originalColor;
+			Console.Write(Environment.NewLine);
 		}
 
 		private static void WriteColored(string message, ConsoleColor foreground_color, ConsoleColor? background_color = null) {
