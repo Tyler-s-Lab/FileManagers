@@ -83,46 +83,51 @@ namespace BilibiliMobileDownloadProcessor {
 
 			PathHelper.EnsureFileCanExsist(finalpath);
 
-			Process process = new();
-			process.StartInfo.FileName = "ffmpeg.exe";
-			if (item.CoverPath != null) {
+			ProcessStartInfo startInfo = item.CoverPath != null ?
+				new() {
+					ArgumentList = {
+						"-i", item.VideoPath.Path,
+						"-i", item.AudioPath.Path,
+						"-i", item.CoverPath.Path,
+						"-map", "0:v:0", "-map", "1:a:0", "-map", "2",
+						"-c:v", "copy", "-c:a", "copy",
+						"-metadata", $"title=\"{item.PartName}\"",
+						"-metadata", $"album=\"{item.Title}\"",
+						"-metadata", $"artist=\"{item.OwnerName}\"",
+						"-metadata", $"description=\"avid:{item.AvId},bvid:{item.BvId},owner_id:{item.OwnerId},cid:{item.CId}\"",
+						"-disposition:2", "attached_pic",
+						"-movflags", "+faststart", "-y",
+						finalpath.Path,
+						"-v", "warning"
+					}
+				} : new() {
+					ArgumentList = {
+						"-i", item.VideoPath.Path,
+						"-i", item.AudioPath.Path,
+						"-map", "0:v:0", "-map", "1:a:0",
+						"-c:v", "copy", "-c:a", "copy",
+						"-metadata", $"title=\"{item.PartName}\"",
+						"-metadata", $"album=\"{item.Title}\"",
+						"-metadata", $"artist=\"{item.OwnerName}\"",
+						"-metadata", $"description=\"avid:{item.AvId},bvid:{item.BvId},owner_id:{item.OwnerId},cid:{item.CId}\"",
+						"-movflags", "+faststart", "-y",
+						finalpath.Path,
+						"-v", "warning"
+					}
+				};
+			startInfo.FileName = "ffmpeg.exe";
 
-				process.StartInfo.Arguments =
-					$"-i {item.VideoPath} " +
-					$"-i {item.AudioPath} " +
-					$"-i {item.CoverPath} " +
-					$"-map 0:v:0 -map 1:a:0 -map 2 " +
-					$"-c:v copy -c:a copy " +
-					$"-metadata title=\"{ReplaceForCmd(item.PartName)}\" " +
-					$"-metadata album=\"{ReplaceForCmd(item.Title)}\" " +
-					$"-metadata artist=\"{ReplaceForCmd(item.OwnerName)}\" " +
-					$"-metadata description=\"avid:{item.AvId},bvid:{ReplaceForCmd(item.BvId)},owner_id:{item.OwnerId},cid:{item.CId}\" " +
-					$"-disposition:2 attached_pic " +
-					$"-movflags +faststart " +
-					$"{finalpath} " +
-					$"-v warning";
+			bool res = false;
+			using (var process = System.Diagnostics.Process.Start(startInfo)) {
+				if (process != null) {
+					//Logger.Info(string.Concat(process.StartInfo.ArgumentList));
+					process.WaitForExit();
+					res = true;
 			}
-			else {
-				process.StartInfo.Arguments =
-					$"-i {item.VideoPath} " +
-					$"-i {item.AudioPath} " +
-					$"-map 0:v:0 -map 1:a:0 " +
-					$"-c:v copy -c:a copy " +
-					$"-metadata title=\"{ReplaceForCmd(item.PartName)}\" " +
-					$"-metadata album=\"{ReplaceForCmd(item.Title)}\" " +
-					$"-metadata artist=\"{ReplaceForCmd(item.OwnerName)}\" " +
-					$"-metadata description=\"avid:{item.AvId},bvid:{ReplaceForCmd(item.BvId)},owner_id:{item.OwnerId},cid:{item.CId}\" " +
-					$"-movflags +faststart " +
-					$"{finalpath} " +
-					$"-v warning";
 			}
-			//Logger.Info(process.StartInfo.Arguments);
 
-			bool res = process.Start();
-			if (res) {
-				process.WaitForExit();
+			if (res)
 				return finalpath.Path;
-			}
 			return null;
 		}
 
@@ -208,7 +213,7 @@ namespace BilibiliMobileDownloadProcessor {
 			{
 				string quality = (root.Element("type_tag")?.Value) ?? throw new Exception($"Entry info - type_tag not found.");
 				quality = RemoveNonnumeric(quality) ?? "";
-				if(string.IsNullOrEmpty(quality)) {
+				if (string.IsNullOrEmpty(quality)) {
 					throw new Exception($"Entry info - quality is invalid.");
 				}
 
@@ -251,9 +256,6 @@ namespace BilibiliMobileDownloadProcessor {
 				CoverPath = srcCover,
 			};
 		}
-
-		[return: NotNullIfNotNull(nameof(input))]
-		public static string? ReplaceForCmd(string? input) => StringHelper.ReplaceInvalidCharForCommandLine(input);
 
 		[return: NotNullIfNotNull(nameof(input))]
 		public static string? RemoveNonnumeric(string? input) => StringHelper.RemoveCharNotNumeric(input);
