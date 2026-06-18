@@ -1,6 +1,7 @@
 ﻿using MngrHelper;
 using Newtonsoft.Json;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Xml.Linq;
 
 namespace BilibiliMobileDownloadProcessor {
@@ -85,16 +86,17 @@ namespace BilibiliMobileDownloadProcessor {
 			Process process = new();
 			process.StartInfo.FileName = "ffmpeg.exe";
 			if (item.CoverPath != null) {
+
 				process.StartInfo.Arguments =
 					$"-i {item.VideoPath} " +
 					$"-i {item.AudioPath} " +
 					$"-i {item.CoverPath} " +
 					$"-map 0:v:0 -map 1:a:0 -map 2 " +
 					$"-c:v copy -c:a copy " +
-					$"-metadata title=\"{ReplaceInvalidCharForCommandLine(item.PartName)}\" " +
-					$"-metadata album=\"{ReplaceInvalidCharForCommandLine(item.Title)}\" " +
-					$"-metadata artist=\"{ReplaceInvalidCharForCommandLine(item.OwnerName)}\" " +
-					$"-metadata description=\"avid:{item.AvId},bvid:{ReplaceInvalidCharForCommandLine(item.BvId)},owner_id:{item.OwnerId},cid:{item.CId}\" " +
+					$"-metadata title=\"{ReplaceForCmd(item.PartName)}\" " +
+					$"-metadata album=\"{ReplaceForCmd(item.Title)}\" " +
+					$"-metadata artist=\"{ReplaceForCmd(item.OwnerName)}\" " +
+					$"-metadata description=\"avid:{item.AvId},bvid:{ReplaceForCmd(item.BvId)},owner_id:{item.OwnerId},cid:{item.CId}\" " +
 					$"-disposition:2 attached_pic " +
 					$"-movflags +faststart " +
 					$"{finalpath} " +
@@ -106,10 +108,10 @@ namespace BilibiliMobileDownloadProcessor {
 					$"-i {item.AudioPath} " +
 					$"-map 0:v:0 -map 1:a:0 " +
 					$"-c:v copy -c:a copy " +
-					$"-metadata title=\"{ReplaceInvalidCharForCommandLine(item.PartName)}\" " +
-					$"-metadata album=\"{ReplaceInvalidCharForCommandLine(item.Title)}\" " +
-					$"-metadata artist=\"{ReplaceInvalidCharForCommandLine(item.OwnerName)}\" " +
-					$"-metadata description=\"avid:{item.AvId},bvid:{ReplaceInvalidCharForCommandLine(item.BvId)},owner_id:{item.OwnerId},cid:{item.CId}\" " +
+					$"-metadata title=\"{ReplaceForCmd(item.PartName)}\" " +
+					$"-metadata album=\"{ReplaceForCmd(item.Title)}\" " +
+					$"-metadata artist=\"{ReplaceForCmd(item.OwnerName)}\" " +
+					$"-metadata description=\"avid:{item.AvId},bvid:{ReplaceForCmd(item.BvId)},owner_id:{item.OwnerId},cid:{item.CId}\" " +
 					$"-movflags +faststart " +
 					$"{finalpath} " +
 					$"-v warning";
@@ -205,7 +207,10 @@ namespace BilibiliMobileDownloadProcessor {
 			FilePath? srcCover;
 			{
 				string quality = (root.Element("type_tag")?.Value) ?? throw new Exception($"Entry info - type_tag not found.");
-				quality = RemoveCharNotNumeric(quality);
+				quality = RemoveNonnumeric(quality) ?? "";
+				if(string.IsNullOrEmpty(quality)) {
+					throw new Exception($"Entry info - quality is invalid.");
+				}
 
 				var partPath = path.Parent;
 				var srcDir = partPath / quality;
@@ -228,16 +233,16 @@ namespace BilibiliMobileDownloadProcessor {
 			}
 
 			return new Item {
-				OwnerId = RemoveCharNotNumeric(owner_id),
+				OwnerId = RemoveNonnumeric(owner_id) ?? "",
 				OwnerName = owner_name,
 
-				AvId = RemoveCharNotNumeric(avid),
+				AvId = RemoveNonnumeric(avid) ?? "",
 				BvId = bvid,
 				Title = title,
 
-				PartNum = RemoveCharNotNumeric(pagenum),
+				PartNum = RemoveNonnumeric(pagenum) ?? "",
 				PartName = pagename,
-				CId = RemoveCharNotNumeric(pagecid),
+				CId = RemoveNonnumeric(pagecid) ?? "",
 
 				isEp = isEp,
 
@@ -247,16 +252,11 @@ namespace BilibiliMobileDownloadProcessor {
 			};
 		}
 
+		[return: NotNullIfNotNull(nameof(input))]
+		public static string? ReplaceForCmd(string? input) => StringHelper.ReplaceInvalidCharForCommandLine(input);
 
-		internal static string? ReplaceInvalidCharForCommandLine(string? input) {
-			// 替换命令行中可能引起问题的字符
-			return input?.Replace("\"", "\\\"")?.Replace("'", "\\'");
-		}
-
-		internal static string RemoveCharNotNumeric(string? input) {
-			return new string(input?.Where(char.IsDigit).ToArray());
-		}
-
+		[return: NotNullIfNotNull(nameof(input))]
+		public static string? RemoveNonnumeric(string? input) => StringHelper.RemoveCharNotNumeric(input);
 
 	}
 }

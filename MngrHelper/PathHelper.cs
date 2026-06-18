@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
 namespace MngrHelper {
 
@@ -97,9 +98,9 @@ namespace MngrHelper {
 		/// <summary>
 		/// 替换 路径中的非法字符
 		/// </summary>
+		[return: NotNullIfNotNull(nameof(path))]
 		internal static string? ReplaceInvalidPathCharacters(string? path) {
-			if (string.IsNullOrEmpty(path))
-				return path;
+			if (path == null) return null;
 
 			var invalidChars = Path.GetInvalidPathChars();
 			var result = new StringBuilder();
@@ -148,9 +149,9 @@ namespace MngrHelper {
 		/// <summary>
 		/// 替换 文件名中的非法字符
 		/// </summary>
+		[return: NotNullIfNotNull(nameof(filename))]
 		internal static string? ReplaceInvalidFilenameCharacters(string? filename) {
-			if (string.IsNullOrEmpty(filename))
-				return filename;
+			if (filename == null) return null;
 
 			var invalidChars = Path.GetInvalidFileNameChars();
 			var result = new StringBuilder();
@@ -180,9 +181,9 @@ namespace MngrHelper {
 		/// <summary>
 		/// 移除 文件名中的非法字符
 		/// </summary>
+		[return: NotNullIfNotNull(nameof(filename))]
 		internal static string? RemoveInvalidFilenameCharacters(string? filename) {
-			if (string.IsNullOrEmpty(filename))
-				return filename;
+			if (filename == null) return null;
 
 			var invalidChars = Path.GetInvalidFileNameChars();
 			var result = new StringBuilder();
