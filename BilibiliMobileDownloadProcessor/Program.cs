@@ -7,32 +7,37 @@ namespace BilibiliMobileDownloadProcessor {
 	internal class Program {
 
 		static void Main(string[] args) {
-			Console.OutputEncoding = System.Text.Encoding.UTF8;
+			MngrHelper.Logger.Init();
 
-			if (args.Length != 1) {
+			switch (1) {
+			default:
+
+				string? path;
+				if (args.Length != 1) {
 #if DEBUG
-				args = args.Append(Console.ReadLine()).ToArray() ?? [];
+					MngrHelper.Logger.Info("Please input the path to the folder containing the downloaded videos:");
+					path = Console.ReadLine();
 #else
-				return;
+					MngrHelper.Logger.Info("Drag and drop.");
+					break;
 #endif
+				}
+				else {
+					path = args[0];
+				}
+
+				if (path == null || !Directory.Exists(path)) {
+					MngrHelper.Logger.Error("Path does not exist.");
+					break;
+				}
+
+				Combiner.Process(path);
+				//Combiner.Process("E:\\2");
+
+				break;
 			}
 
-			var path = args[0];
-
-			if (!Directory.Exists(path)) {
-				return;
-			}
-
-
-			
-			Combiner.Process(path);
-			//Combiner.Process("E:\\2");
-
-			Console.WriteLine("按任意键继续...");
-			Console.ReadKey();
-
-			//EnumBvid(path, "C:\\Users\\Myste\\Videos");
-			//EnumBvid("D:\\b", "C:\\Users\\Myste\\Videos\\b");
+			MngrHelper.Logger.Pause();
 
 			return;
 		}
