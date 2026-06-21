@@ -19,16 +19,16 @@ namespace MngrHelper {
 		/// 显示消息并等待用户按任意键继续。
 		/// </summary>
 		public static void Pause() {
-			Console.WriteLine("Press any key to continue...");
+			Console.WriteLine("Press any key to continue . . .");
 			Console.ReadKey();
 		}
 		/// <summary>
-		/// 以绿色输出 Info 级别的消息（带换行）。
+		/// 不改变颜色输出 Info 级别的消息（带换行）。
 		/// </summary>
 		public static void Info(string message) => Console.WriteLine("[info] " + message);
 
 		/// <summary>
-		/// 以绿色输出 Info 级别的格式化消息（带换行）。
+		/// 不改变颜色输出 Info 级别的格式化消息（带换行）。
 		/// </summary>
 		public static void Info(string format, params object[] args)
 			=> Info(string.Format(format, args));
@@ -82,26 +82,18 @@ namespace MngrHelper {
 		}
 
 		/// <summary>
-		/// 以青色输出 Success 级别的消息（带换行）。
+		/// 以绿色输出 Success 级别的消息（带换行）。
 		/// </summary>
 		public static void Success(string message) => WriteColoredLine("[success] " + message, ConsoleColor.Green);
 
 		/// <summary>
-		/// 以青色输出 Success 级别的格式化消息（带换行）。
+		/// 以绿色输出 Success 级别的格式化消息（带换行）。
 		/// </summary>
 		public static void Success(string format, params object[] args)
 			=> Success(string.Format(format, args));
 
 		private static void WriteColoredLine(string message, ConsoleColor foreground_color, ConsoleColor? background_color = null) {
-			var originalColor = Console.ForegroundColor;
-			var originalBackgroundColor = Console.BackgroundColor;
-			Console.ForegroundColor = foreground_color;
-			if (background_color != null) {
-				Console.BackgroundColor = (ConsoleColor)background_color;
-			}
-			Console.Write(message);
-			Console.BackgroundColor = originalBackgroundColor;
-			Console.ForegroundColor = originalColor;
+			WriteColored(message, foreground_color, background_color);
 			Console.WriteLine();
 		}
 
