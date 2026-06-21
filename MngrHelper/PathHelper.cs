@@ -222,7 +222,7 @@ namespace MngrHelper {
 			}
 			catch (Exception e) {
 				Logger.Exception(e, true);
-				Logger.Error($"Failed to CreateAllDirectory because an exception occurs.{Environment.NewLine}{Environment.StackTrace}");
+				Logger.Error($"Failed to 'CreateAllDirectory' because an exception occurs.{Environment.NewLine}{Environment.StackTrace}");
 				res = false;
 			}
 
@@ -237,11 +237,11 @@ namespace MngrHelper {
 		/// <returns>true if 完成任务</returns>
 		public static bool EnsureFileCanExsist(FilePath filePath) {
 			if (filePath.IsRoot()) {
-				Logger.Error($"Failed to EnsureFileCanExsist because filePath is root.{Environment.NewLine}{Environment.StackTrace}");
+				Logger.Error($"Failed to 'EnsureFileCanExsist' because 'filePath' is root.{Environment.NewLine}{Environment.StackTrace}");
 				return false;
 			}
 			if (!CreateAllDirectory(filePath.Parent)) {
-				Logger.Error($"Failed to EnsureFileCanExsist because CreateAllDirectory failed.{Environment.NewLine}{Environment.StackTrace}");
+				Logger.Error($"Failed to 'EnsureFileCanExsist' because 'CreateAllDirectory' failed.{Environment.NewLine}{Environment.StackTrace}");
 				return false;
 			}
 			return true;
