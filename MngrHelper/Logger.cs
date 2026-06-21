@@ -102,7 +102,7 @@ namespace MngrHelper {
 			Console.Write(message);
 			Console.BackgroundColor = originalBackgroundColor;
 			Console.ForegroundColor = originalColor;
-			Console.Write(Environment.NewLine);
+			Console.WriteLine();
 		}
 
 		private static void WriteColored(string message, ConsoleColor foreground_color, ConsoleColor? background_color = null) {
