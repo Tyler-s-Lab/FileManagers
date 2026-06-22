@@ -1,38 +1,57 @@
 ﻿
-#include "Combiner.h"
+import <memory>;
+import <filesystem>;
+import LoggerModule;
+import WorkModule;
+import WinHelperModule;
 
-#include <stdlib.h>
-#include <iostream>
+int wmain(int argc, wchar_t* argv[]) {
+	Logger::Init();
 
-using namespace std;
-
-int main(int argc, char* argv[]) {
-	cout << "Info: Cmd line:" << endl;
-	for (int i = 0; i < argc; ++i) {
-		cout << "\t'" << argv[i] << "'" << endl;
+	if (auto c = SetCurrentDirectoryToExe(); c < 0) {
+		Logger::error << "Failed to initialize: " << std::filesystem::current_path() << ". Code: " << c << ".";
+		return -c;
 	}
-	cout << "End cmd line." << endl << endl;
-	if (argc == 2) {
-		cout << "Info: Work in '" << argv[1] << "'." << endl;
-		try {
-			if (ohms::CombineIn(argv[1])) {
-				cout << "Info: Task Succeed." << endl;
-			}
-			else {
-				cout << "Info: Task Failed." << endl;
-			}
+	Logger::info << "Current: " << std::filesystem::current_path() << ".";
+
+	Logger::Info("Cmd line:");
+	for (int i = 0; i < argc; ++i) {
+		Logger::info << L"    " << argv[i];
+	}
+	Logger::Info("Cmd end.");
+	Console::WriteLine();
+
+	int code = 0;
+	switch (0) {
+	case 0:
+#ifndef _DEBUG
+		if (argc < 2) {
+			Logger::Error("No argument provided.");
+			Logger::Info("     Just drag files/folders onto the icon of this app");
+			Logger::Info("     or list paths after app name.");
+			code = 1;
+			break;
 		}
-		catch (std::exception& e) {
-			cout << "Exception: '" << e.what() << "'." << endl;
+#endif // !_DEBUG
+
+		try {
+			auto worker = std::make_unique<Work>();
+			if (argc > 1)
+				worker->run(argc - 1, argv + 1);
+			else
+				worker->run(0, nullptr);
+		}
+		catch (const std::exception& excp) {
+			Logger::Exception(excp);
+			code = 1;
 		}
 		catch (...) {
-			cout << "Exception: Unknown Exception." << endl;
+			Logger::Exception("Unknown exception.");
+			code = 1;
 		}
+		break;
 	}
-	else {
-		cout << "Error: Unsupported Argument." << endl;
-		cout << "Just drag one single folder and drop on the icon of this app." << endl;
-	}
-	system("pause");
-	return 0;
+
+	Logger::Pause();
+	return code;
 }
