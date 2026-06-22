@@ -17,6 +17,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MngrCore", "MngrCore\MngrCo
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CombineRGBA", "CombineRGBA\CombineRGBA.vcxproj", "{591A6681-5678-4C12-A0AF-60C256766C4F}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PVZPAK", "PVZPAK\PVZPAK.vcxproj", "{0093F691-D87D-427D-A97D-1E555ACD4A97}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -99,6 +101,18 @@ Global
 		{591A6681-5678-4C12-A0AF-60C256766C4F}.Release|x64.Build.0 = Release|x64
 		{591A6681-5678-4C12-A0AF-60C256766C4F}.Release|x86.ActiveCfg = Release|x64
 		{591A6681-5678-4C12-A0AF-60C256766C4F}.Release|x86.Build.0 = Release|x64
+		{0093F691-D87D-427D-A97D-1E555ACD4A97}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{0093F691-D87D-427D-A97D-1E555ACD4A97}.Debug|Any CPU.Build.0 = Debug|x64
+		{0093F691-D87D-427D-A97D-1E555ACD4A97}.Debug|x64.ActiveCfg = Debug|x64
+		{0093F691-D87D-427D-A97D-1E555ACD4A97}.Debug|x64.Build.0 = Debug|x64
+		{0093F691-D87D-427D-A97D-1E555ACD4A97}.Debug|x86.ActiveCfg = Debug|Win32
+		{0093F691-D87D-427D-A97D-1E555ACD4A97}.Debug|x86.Build.0 = Debug|Win32
+		{0093F691-D87D-427D-A97D-1E555ACD4A97}.Release|Any CPU.ActiveCfg = Release|x64
+		{0093F691-D87D-427D-A97D-1E555ACD4A97}.Release|Any CPU.Build.0 = Release|x64
+		{0093F691-D87D-427D-A97D-1E555ACD4A97}.Release|x64.ActiveCfg = Release|x64
+		{0093F691-D87D-427D-A97D-1E555ACD4A97}.Release|x64.Build.0 = Release|x64
+		{0093F691-D87D-427D-A97D-1E555ACD4A97}.Release|x86.ActiveCfg = Release|Win32
+		{0093F691-D87D-427D-A97D-1E555ACD4A97}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -107,6 +121,7 @@ Global
 		SolutionGuid = {FA5C782F-04B5-48AD-8827-2B80D8278F27}
 	EndGlobalSection
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		MngrCore\MngrCore.vcxitems*{0093f691-d87d-427d-a97d-1e555acd4a97}*SharedItemsImports = 4
 		MngrCore\MngrCore.vcxitems*{591a6681-5678-4c12-a0af-60c256766c4f}*SharedItemsImports = 4
 		MngrCore\MngrCore.vcxitems*{e83f59dd-ce88-4a1d-8043-57701fce1c31}*SharedItemsImports = 9
 	EndGlobalSection

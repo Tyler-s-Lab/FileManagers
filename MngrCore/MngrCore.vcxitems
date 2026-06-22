@@ -18,6 +18,7 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)ConsoleModule.ixx" />
     <ClCompile Include="$(MSBuildThisFileDirectory)IniParserModule.ixx" />
     <ClCompile Include="$(MSBuildThisFileDirectory)LoggerModule.ixx" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)PathHelperModule.ixx" />
     <ClCompile Include="$(MSBuildThisFileDirectory)StringWidthHelperModule.ixx" />
     <ClCompile Include="$(MSBuildThisFileDirectory)TempGuardModule.ixx" />
     <ClCompile Include="$(MSBuildThisFileDirectory)Win32ExceptionsModule.ixx" />

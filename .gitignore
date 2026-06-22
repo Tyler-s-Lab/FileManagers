@@ -399,3 +399,11 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+/PVZPAK/compiled
+/PVZPAK/data
+/PVZPAK/images
+/PVZPAK/particles
+/PVZPAK/properties
+/PVZPAK/reanim
+/PVZPAK/sounds
+/PVZPAK/main.pak
