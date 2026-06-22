@@ -17,6 +17,7 @@ namespace fs = std::filesystem;
 
 export class Work {
 	const size_t Max_Recurse_Depth = 8;
+	bool m_inverse;
 
 public:
 	Work() = default;
@@ -27,6 +28,7 @@ public:
 			//CombineIn(fs::path{ LR"()" });
 		}
 #endif // _DEBUG
+		m_inverse = fs::exists(".\\inverse.gray");
 		for (int i = 0; i < argc; ++i) {
 			CombineIn(fs::path{ argv[i] });
 		}
@@ -142,6 +144,9 @@ void Work::CheckDirectory(fs::path d, int depth) {
 
 		mat[0].convertTo(mat[0], CV_8UC3);
 		mat[1].convertTo(mat[1], CV_8UC1);
+
+		if (m_inverse)
+			cv::bitwise_not(mat[1], mat[1]);
 
 		if (mat[0].size() != mat[1].size()) {
 			cv::resize(mat[1], mat[1], mat[0].size(), 0.0, 0.0, cv::InterpolationFlags::INTER_CUBIC);
