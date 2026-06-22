@@ -8,6 +8,7 @@ import <filesystem>;
 import <set>;
 import <string>;
 import <iostream>;
+import <fstream>;
 
 import LoggerModule;
 import WinHelperModule;
@@ -36,6 +37,7 @@ public:
 private:
 	bool CombineIn(fs::path dir);
 	void CheckDirectory(fs::path d, int depth);
+	cv::Mat ReadMat(const fs::path& path, int flags = cv::IMREAD_COLOR);
 };
 
 struct ImageItemData {
@@ -125,8 +127,21 @@ void Work::CheckDirectory(fs::path d, int depth) {
 		//cout << i.first << ": " << i.second << endl;
 
 		cv::Mat mat[2];
-		mat[0] = cv::imread(data.path_rgb.string());
-		mat[1] = cv::imread(data.path_a.string());
+		mat[0] = ReadMat(data.path_rgb);
+		mat[1] = ReadMat(data.path_a, cv::IMREAD_GRAYSCALE);
+
+		if (mat[0].empty()) {
+			Logger::error << "Failed to read '" << data.path_rgb << "', skipping.";
+		}
+		if (mat[1].empty()) {
+			Logger::error << "Failed to read '" << data.path_a << "', skipping.";
+		}
+		if (mat[0].empty() || mat[1].empty()) {
+			continue;
+		}
+
+		mat[0].convertTo(mat[0], CV_8UC3);
+		mat[1].convertTo(mat[1], CV_8UC1);
 
 		if (mat[0].size() != mat[1].size()) {
 			cv::resize(mat[1], mat[1], mat[0].size(), 0.0, 0.0, cv::InterpolationFlags::INTER_CUBIC);
@@ -143,7 +158,7 @@ void Work::CheckDirectory(fs::path d, int depth) {
 
 		cv::mixChannels(mat, 2, &res, 1, fromTo, 4);
 
-		fs::path tmp = d / (i.first + L"[c].png");
+		fs::path tmp = L".\\tmp.png";
 		fs::path fnl = d / (i.first + L".png");
 		if (cv::imwrite(tmp.string(), res)) {
 			fs::create_directory(d / "original");
@@ -153,4 +168,33 @@ void Work::CheckDirectory(fs::path d, int depth) {
 		}
 	}
 	return;
+}
+
+cv::Mat Work::ReadMat(const fs::path& image_path, int flags) {
+	// 1. 使用 std::ifstream 以二进制模式打开文件
+	std::ifstream file(image_path, std::ios::binary);
+	if (!file.is_open()) {
+		Logger::error << "Failed to open file: " << image_path << ".";
+		return cv::Mat();
+	}
+
+	// 2. 将整个文件内容读入内存缓冲区
+	// 使用 istreambuf_iterator 高效读取
+	std::vector<uchar> buffer(std::istreambuf_iterator<char>(file), {});
+	file.close();
+
+	if (buffer.empty()) {
+		Logger::error << "File is empty: " << image_path << ".";
+		return cv::Mat();
+	}
+
+	// 3. 使用 cv::imdecode 从内存缓冲区解码图像
+	try {
+		cv::Mat img = cv::imdecode(buffer, flags);
+		return img;
+	}
+	catch (const cv::Exception& e) {
+		Logger::error << "Failed to decode image: " << image_path << ". " << e.what();
+		return cv::Mat();
+	}
 }
