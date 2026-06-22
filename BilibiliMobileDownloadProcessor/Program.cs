@@ -5,6 +5,8 @@
 		static void Main(string[] args) {
 			MngrHelper.Logger.Init();
 
+			MngrHelper.Logger.Info($"Current: {Environment.CurrentDirectory}.");
+
 			MngrHelper.Logger.Info("Cmd line:");
 			foreach (string s in args) {
 				MngrHelper.Logger.Info($"\t{s}");
