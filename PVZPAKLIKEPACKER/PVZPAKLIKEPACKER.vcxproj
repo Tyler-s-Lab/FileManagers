@@ -144,7 +144,8 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\PVZPAK\Module.ixx" />
+    <ClCompile Include="..\PVZPAK\PVZModule.ixx" />
+    <ClCompile Include="EncryptStreamModule.ixx" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="WorkModule.ixx" />
   </ItemGroup>

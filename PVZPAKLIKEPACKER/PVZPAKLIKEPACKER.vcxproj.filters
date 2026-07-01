@@ -18,10 +18,13 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\PVZPAK\Module.ixx">
+    <ClCompile Include="WorkModule.ixx">
       <Filter>头文件</Filter>
     </ClCompile>
-    <ClCompile Include="WorkModule.ixx">
+    <ClCompile Include="..\PVZPAK\PVZModule.ixx">
+      <Filter>头文件</Filter>
+    </ClCompile>
+    <ClCompile Include="EncryptStreamModule.ixx">
       <Filter>头文件</Filter>
     </ClCompile>
   </ItemGroup>

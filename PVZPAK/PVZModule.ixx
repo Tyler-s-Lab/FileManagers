@@ -1,4 +1,4 @@
-﻿export module Module;
+﻿export module PVZModule;
 
 import <vector>;
 import <fstream>;

@@ -7,7 +7,7 @@ import LoggerModule;
 import PathHelperModule;
 import ConsoleModule;
 
-import Module;
+import PVZModule;
 
 using namespace std;
 namespace fs = std::filesystem;
