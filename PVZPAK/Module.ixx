@@ -10,6 +10,7 @@ using namespace std;
 export struct FileInfo {
 	string pPathname;	//文件名称（带路径）
 	uint32_t fileSize;	//文件长度（需要保证编译器上的sizeof (unsigned int) == 4）
+	int64_t fileTime;	//文件时间
 };
 
 
