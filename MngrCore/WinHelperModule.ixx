@@ -27,6 +27,10 @@ ReTryGet:
 		goto ReTryGet;
 	}*/
 
+#ifdef _DEBUG
+	return 0;
+#endif
+
 	wchar_t* p = nullptr;
 	if (0 != _get_wpgmptr(&p)) {
 		return -1;
