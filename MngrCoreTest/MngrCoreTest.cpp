@@ -41,18 +41,18 @@ int main() {
 	//std::cout.imbue(std::locale(".utf-8"));
 	//std::wcout.imbue(std::locale(".utf-8"));
 
-	Logger::info << "TEST \n\tinfo";
-	Logger::warning << "TEST \n\twarning";
-	Logger::error << "TEST \n\terror";
+	Logger::info << "TEST" << logendl << logtab << "info";
+	Logger::warning << "TEST" << logendl << logtab << "warning";
+	Logger::error << "TEST" << logendl << logtab << "error";
 	Logger::exception << "TEST \vexception v";
 	Logger::exception << "TEST \n    exception n ....";
-	Logger::exception << "TEST \n\texception n t";
+	Logger::exception << "TEST" << logendl << logtab << "exception n t";
 	Logger::exception << "TEST \v\r\texception v r t";
-	Logger::exception << "TEST \n\texception n t";
+	Logger::exception << "TEST" << logendl << logtab << "exception n t";
 	Logger::exception <<
 		"This is an exception message with special characters: \tstdfghedygbn"
 		"54e 56w4 6tw5y \n rge3564 6yey6yr56u ey we45y457\n6 356 3456 54trfy w45e565 r5r\"\\ and colors!" << "\r\n";
-	Logger::success << "TEST success";
+	Logger::success << "TEST success" << logendl << logtab << "success";
 
 	std::cout << "TestOut" << std::endl;
 	std::cerr << "TestErr" << std::endl;

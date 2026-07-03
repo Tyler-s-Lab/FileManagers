@@ -3,22 +3,7 @@
 export import <string>;
 export import <format>;
 export import ConsoleModule;
-import <ostream>;
-import <sstream>;
-import <filesystem>;
-import StringWidthHelperModule;
-
-class LoggerStreamGetter {
-public:
-	enum class Type {
-		Info = 0,
-		Warning,
-		Error,
-		Exception,
-		Success,
-		COUNT
-	} type;
-};
+export import LoggerHelperModule;
 
 export class Logger {
 public:
@@ -113,100 +98,26 @@ public:
 	}
 
 private:
-	static void WriteColoredLine(std::string_view perfix, std::string_view message, Console::ConsoleColor foreground_color, Console::ConsoleColor background_color = Console::ConsoleColor::Empty);
-	static void WriteColoredLine(std::wstring_view perfix, std::wstring_view message, Console::ConsoleColor foreground_color, Console::ConsoleColor background_color = Console::ConsoleColor::Empty);
+	static void WriteColoredLine(std::string_view perfix, std::string_view message, Console::ConsoleColor foreground_color, Console::ConsoleColor background_color = Console::ConsoleColor::Empty) {
+		Logger::WriteColored(perfix, message, foreground_color, background_color);
+		Console::WriteLine();
+	}
+	static void WriteColoredLine(std::wstring_view perfix, std::wstring_view message, Console::ConsoleColor foreground_color, Console::ConsoleColor background_color = Console::ConsoleColor::Empty) {
+		Logger::WriteColored(perfix, message, foreground_color, background_color);
+		Console::WriteLine();
+	}
 
 	template <typename _string_T1, typename _string_T2>
-	static void WriteColored(_string_T1 perfix, _string_T2 message, Console::ConsoleColor foreground_color, Console::ConsoleColor background_color = Console::ConsoleColor::Empty);
-};
-
-export class LoggerWrapperStream {
-	std::wostringstream m_stream;
-	LoggerStreamGetter::Type m_type;
-public:
-	LoggerWrapperStream(LoggerStreamGetter::Type _type) :
-		m_type(_type) {
-	}
-	LoggerWrapperStream(LoggerWrapperStream&&) = default;
-
-	virtual ~LoggerWrapperStream() {
-		switch (m_type) {
-		case LoggerStreamGetter::Type::Info:
-			Logger::Info(m_stream.view());
-			break;
-		case LoggerStreamGetter::Type::Warning:
-			Logger::Warning(m_stream.view());
-			break;
-		case LoggerStreamGetter::Type::Error:
-			Logger::Error(m_stream.view());
-			break;
-		case LoggerStreamGetter::Type::Exception:
-			Logger::Exception(m_stream.view());
-			break;
-		case LoggerStreamGetter::Type::Success:
-			Logger::Success(m_stream.view());
-			break;
+	static void WriteColored(_string_T1 perfix, _string_T2 message, Console::ConsoleColor foreground_color, Console::ConsoleColor background_color = Console::ConsoleColor::Empty) {
+		auto originalColor = Console::ForegroundColor();
+		auto originalBackgroundColor = Console::BackgroundColor();
+		Console::ForegroundColor(foreground_color);
+		if (background_color != Console::ConsoleColor::Empty) {
+			Console::BackgroundColor(background_color);
 		}
-	}
-
-	template<typename _Arg>
-		requires(strwidth::compatible_with_wchar_t<_Arg>)
-	LoggerWrapperStream& operator<<(_Arg p) {
-		m_stream << p;
-		return *this;
-	}
-
-	template<typename _Arg>
-		requires(!strwidth::compatible_with_wchar_t<_Arg>)
-	LoggerWrapperStream& operator<<(_Arg p) {
-		m_stream << strwidth::utf8_try_to_wstring(p);
-		return *this;
-	}
-
-	template<>
-	LoggerWrapperStream& operator<< <std::filesystem::path>(std::filesystem::path p) {
-		m_stream << L'"' << p.wstring() << L'"';
-		return *this;
-	}
-	template<>
-	LoggerWrapperStream& operator<< <const std::filesystem::path&>(const std::filesystem::path& p) {
-		m_stream << L'"' << p.wstring() << L'"';
-		return *this;
-	}
-	template<>
-	LoggerWrapperStream& operator<< <std::filesystem::path&&>(std::filesystem::path&& p) {
-		m_stream << L'"' << p.wstring() << L'"';
-		return *this;
+		Console::Write(perfix);
+		Console::Write(message);
+		Console::BackgroundColor(originalBackgroundColor);
+		Console::ForegroundColor(originalColor);
 	}
 };
-
-export template<typename _Arg>
-LoggerWrapperStream operator<<(LoggerStreamGetter left, _Arg p) {
-	LoggerWrapperStream res{ left.type };
-	res << p;
-	return res;
-}
-
-void Logger::WriteColoredLine(std::string_view perfix, std::string_view message, Console::ConsoleColor foreground_color, Console::ConsoleColor background_color) {
-	Logger::WriteColored(perfix, message, foreground_color, background_color);
-	Console::WriteLine();
-}
-void Logger::WriteColoredLine(std::wstring_view perfix, std::wstring_view message, Console::ConsoleColor foreground_color, Console::ConsoleColor background_color) {
-	Logger::WriteColored(perfix, message, foreground_color, background_color);
-	Console::WriteLine();
-}
-
-template <typename _string_T1, typename _string_T2>
-void Logger::WriteColored(_string_T1 perfix, _string_T2 message, Console::ConsoleColor foreground_color, Console::ConsoleColor background_color) {
-	auto originalColor = Console::ForegroundColor();
-	auto originalBackgroundColor = Console::BackgroundColor();
-	Console::ForegroundColor(foreground_color);
-	if (background_color != Console::ConsoleColor::Empty) {
-		Console::BackgroundColor(background_color);
-	}
-	Console::Write(perfix);
-	Console::Write(message);
-	Console::BackgroundColor(originalBackgroundColor);
-	Console::ForegroundColor(originalColor);
-}
-
