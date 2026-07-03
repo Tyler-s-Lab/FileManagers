@@ -41,6 +41,8 @@ int main() {
 	//std::cout.imbue(std::locale(".utf-8"));
 	//std::wcout.imbue(std::locale(".utf-8"));
 
+	Logger::Init();
+
 	Logger::info << "TEST" << logendl << logtab << "info";
 	Logger::warning << "TEST" << logendl << logtab << "warning";
 	Logger::error << "TEST" << logendl << logtab << "error";
@@ -71,7 +73,7 @@ int main() {
 		cab += args[i];
 	}
 
-	Logger::warning << cab ;
+	Logger::warning << cab;
 	//logger.reset();
 
 	WinProcRunAndWait(args[0], cab);
@@ -91,6 +93,8 @@ int main() {
 	Logger::success << "OK 完毕 A 🙂!";
 	Logger::success << "OK 完毕 A 🙂!";
 	Logger::success << L"OK 完毕 W 🙂!";
+
+	Logger::Pause();
 
 	return 0;
 }

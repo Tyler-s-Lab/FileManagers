@@ -14,9 +14,7 @@ public:
 	friend BasicCmdArgBuilder<_Elem> operator + (const BasicCmdArgBuilder<_Elem>& left, typename BasicCmdArgBuilder<_Elem>::target_string_view next_arg);
 
 	template <typename _Elem>
-	friend std::ostream& operator << (std::ostream& left, const BasicCmdArgBuilder<_Elem>& right);
-	template <class _Elem>
-	friend std::wostream& operator << (std::wostream& left, const BasicCmdArgBuilder<_Elem>& right);
+	friend std::basic_ostream<_Elem>& operator << (std::basic_ostream<_Elem>& left, const BasicCmdArgBuilder<_Elem>& right);
 
 public:
 	BasicCmdArgBuilder() = default;
@@ -35,7 +33,7 @@ public:
 	}
 
 	BasicCmdArgBuilder& operator += (target_string_view next_arg) {
-		std::basic_string<_Elem, std::char_traits<_Elem>, std::allocator<_Elem>> _tmp;
+		std::basic_string<_Elem> _tmp;
 		_tmp.reserve(next_arg.size() * 2);
 
 		bool need_quote = false;
@@ -138,28 +136,23 @@ BasicCmdArgBuilder<_Elem> operator + (const BasicCmdArgBuilder<_Elem>& left, typ
 	res += next_arg;
 	return std::move(res);
 }
-export template <class _Elem>
+export template <typename _Elem>
 BasicCmdArgBuilder<_Elem> operator + (const BasicCmdArgBuilder<_Elem>& left, const std::basic_string<_Elem, std::char_traits<_Elem>, std::allocator<_Elem>>& next_arg) {
 	return left + std::basic_string_view<_Elem>{next_arg};
 }
-export template <class _Elem>
+export template <typename _Elem>
 BasicCmdArgBuilder<_Elem> operator + (const BasicCmdArgBuilder<_Elem>& left, const _Elem* next_arg) {
 	return left + std::basic_string_view<_Elem>{next_arg};
 }
-export template <class _Elem>
+export template <typename _Elem>
 BasicCmdArgBuilder<_Elem> operator + (const BasicCmdArgBuilder<_Elem>& left, const BasicCmdArgBuilder<_Elem>& right) {
 	BasicCmdArgBuilder<_Elem> res{ left };
 	res += right;
 	return res;
 }
 
-export template <class _Elem>
-std::ostream& operator << (std::ostream& left, const BasicCmdArgBuilder<_Elem>& right) {
-	return left << right._str;
-}
-
-export template <class _Elem>
-std::wostream& operator << (std::wostream& left, const BasicCmdArgBuilder<_Elem>& right) {
+export template <typename _Elem>
+std::basic_ostream<_Elem>& operator << (std::basic_ostream<_Elem>& left, const BasicCmdArgBuilder<_Elem>& right) {
 	return left << right._str;
 }
 
