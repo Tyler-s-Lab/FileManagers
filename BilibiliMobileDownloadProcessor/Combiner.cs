@@ -1,8 +1,6 @@
 ﻿using MngrHelper;
 using Newtonsoft.Json;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.Xml.Linq;
 
 namespace BilibiliMobileDownloadProcessor {
 	internal static class Combiner {
@@ -10,6 +8,7 @@ namespace BilibiliMobileDownloadProcessor {
 		internal struct BiliEntry() {
 			public string title = "";
 			public string type_tag = ""; // long video_quality; long prefered_video_quality;
+			public string cover = ""; // url to cover file
 
 			public long avid = 0;
 			public long season_id = 0;
@@ -30,6 +29,7 @@ namespace BilibiliMobileDownloadProcessor {
 				public long cid = 0;
 				public long page = 0;
 				public string part = "";
+				public bool has_alias = false;
 			}
 			public PageData? page_data = null;
 
@@ -40,6 +40,21 @@ namespace BilibiliMobileDownloadProcessor {
 			public FilePath VideoPath = new();
 			public FilePath AudioPath = new();
 			public FilePath? CoverPath = null;
+
+			public string EntryContent = "";
+			public string IndexContent = "";
+			public string DanmakuContent = "";
+
+			// https://api.bilibili.com/x/player/pagelist?aid={avid}
+			// https://api.bilibili.com/x/player/pagelist?bvid={bvid}
+		}
+
+		static FfmpegMetadataHelp? _metahelper;
+		static FfmpegMetadataHelp MetaHelper {
+			get {
+				_metahelper ??= new();
+				return _metahelper;
+			}
 		}
 
 		public static void Process(string path) {
@@ -71,9 +86,12 @@ namespace BilibiliMobileDownloadProcessor {
 					Logger.Success($"{item.VideoPath.Parent.Parent} to {res}.");
 				}
 			}
+
+			_metahelper?.Dispose();
+			_metahelper = null;
 		}
 
-		internal static FilePath? Combine(BiliEntry item, FilePath path) {
+		static FilePath? Combine(BiliEntry item, FilePath path) {
 			var finalpath = path / "bilibili";
 			//if (item.OwnerId != 0 || !string.IsNullOrEmpty(item.OwnerName)) {
 			finalpath /= $"[{item.owner_id}]{item.owner_name}";
@@ -90,7 +108,7 @@ namespace BilibiliMobileDownloadProcessor {
 				cid = ep.danmaku;
 			}
 			else if (item.page_data is BiliEntry.PageData pd) {
-				if (string.IsNullOrEmpty(item.bvid))
+				if (pd.has_alias)
 					work_name = $"[{item.avid}]{pd.part}";
 				else
 					work_name = $"[{item.avid}]{item.title}";
@@ -114,36 +132,43 @@ namespace BilibiliMobileDownloadProcessor {
 
 			PathHelper.EnsureFileCanExsist(finalpath);
 
+			MetaHelper.Start();
+			MetaHelper.AddItem("title", part_name);
+			MetaHelper.AddItem("album", item.title);
+			MetaHelper.AddItem("artist", item.owner_name);
+			MetaHelper.AddItem("genre", $"avid:{item.avid},bvid:{item.bvid},owner_id:{item.owner_id},cid:{cid}");
+			MetaHelper.AddItem("description", $"[{item.EntryContent},{item.IndexContent}]{item.DanmakuContent}");
+			var metapath = MetaHelper.Finish();
+
 			ProcessStartInfo startInfo = item.CoverPath != null ?
 				new() {
 					ArgumentList = {
 						"-i", item.VideoPath.Path,
 						"-i", item.AudioPath.Path,
+						"-i", metapath,
 						"-i", item.CoverPath.Path,
-						"-map", "0:v:0", "-map", "1:a:0", "-map", "2",
+						"-map", "3",
+						"-map", "0:v",
+						"-map", "1:a",
+						"-map_metadata", "2",
+						"-movflags", "+faststart",
+						"-disposition:0", "attached_pic",
 						"-c:v", "copy", "-c:a", "copy",
-						"-metadata", $"title={part_name}",
-						"-metadata", $"album={item.title}",
-						"-metadata", $"artist={item.owner_name}",
-						"-metadata", $"description=avid:{item.avid},bvid:{item.bvid},owner_id:{item.owner_id},cid:{cid}",
-						"-disposition:2", "attached_pic",
-						"-movflags", "+faststart", "-y",
 						finalpath.Path,
-						"-v", "warning"
+						"-y", "-v", "warning"
 					}
 				} : new() {
 					ArgumentList = {
 						"-i", item.VideoPath.Path,
 						"-i", item.AudioPath.Path,
-						"-map", "0:v:0", "-map", "1:a:0",
+						"-i", metapath,
+						"-map", "0:v",
+						"-map", "1:a",
+						"-map_metadata", "2",
+						"-movflags", "+faststart",
 						"-c:v", "copy", "-c:a", "copy",
-						"-metadata", $"title={part_name}",
-						"-metadata", $"album={item.title}",
-						"-metadata", $"artist={item.owner_name}",
-						"-metadata", $"description=avid:{item.avid},bvid:{item.bvid},owner_id:{item.owner_id},cid:{cid}",
-						"-movflags", "+faststart", "-y",
 						finalpath.Path,
-						"-v", "warning"
+						"-y", "-v", "warning"
 					}
 				};
 			startInfo.FileName = "ffmpeg.exe";
@@ -161,7 +186,7 @@ namespace BilibiliMobileDownloadProcessor {
 		}
 
 
-		public static IEnumerable<BiliEntry> Scan(string[] paths) {
+		static IEnumerable<BiliEntry> Scan(string[] paths) {
 			foreach (var path in paths) {
 				var entryFiles = Directory.EnumerateFiles(
 					path,
@@ -173,7 +198,7 @@ namespace BilibiliMobileDownloadProcessor {
 					BiliEntry? res = null;
 					try {
 						FilePath itempath = new(item);
-						res = ReadEntry(itempath);
+						res = ParseEntry(itempath);
 					}
 					catch (Exception ex) {
 						Logger.Exception(ex, true);
@@ -186,7 +211,7 @@ namespace BilibiliMobileDownloadProcessor {
 			}
 		}
 
-		internal static BiliEntry ReadEntry(FilePath path) {
+		static BiliEntry ParseEntry(FilePath path) {
 			var json = File.ReadAllText(path.Path);
 			var entry = JsonConvert.DeserializeObject<BiliEntry>(json);
 
@@ -198,17 +223,17 @@ namespace BilibiliMobileDownloadProcessor {
 			FilePath srcAudio;
 			FilePath srcVideo;
 			FilePath? srcCover;
-			{
-				var partPath = path.Parent;
-				var srcDir = partPath / entry.type_tag;
 
-				if (!Directory.Exists(srcDir.Path)) {
-					throw new Exception($"Source directory not exists: {srcDir}.");
-				}
-				srcAudio = srcDir / "audio.m4s";
-				srcVideo = srcDir / "video.m4s";
-				srcCover = partPath / "cover.jpg";
+			var partPath = path.Parent;
+			var srcDir = partPath / entry.type_tag;
+
+			if (!Directory.Exists(srcDir.Path)) {
+				throw new Exception($"Source directory not exists: {srcDir}.");
 			}
+			srcAudio = srcDir / "audio.m4s";
+			srcVideo = srcDir / "video.m4s";
+			srcCover = partPath / "cover.jpg";
+
 			if (!File.Exists(srcAudio.Path)) {
 				throw new Exception($"Source media not exists: {srcAudio}.");
 			}
@@ -226,6 +251,21 @@ namespace BilibiliMobileDownloadProcessor {
 			entry.VideoPath = srcVideo;
 			entry.AudioPath = srcAudio;
 			entry.CoverPath = srcCover;
+
+			entry.EntryContent = json;
+
+			var dmk_path = partPath / "danmaku.xml";
+			if (File.Exists(dmk_path.Path)) {
+				var dmk = File.ReadAllText(dmk_path.Path);
+				entry.DanmakuContent = dmk;
+			}
+
+			var index_path = srcDir / "index.json";
+			if (File.Exists(index_path.Path)) {
+				var idx = File.ReadAllText(index_path.Path);
+				entry.IndexContent = idx;
+			}
+
 			return entry;
 		}
 	}
