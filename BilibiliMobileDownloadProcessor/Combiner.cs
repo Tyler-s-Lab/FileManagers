@@ -49,14 +49,6 @@ namespace BilibiliMobileDownloadProcessor {
 			// https://api.bilibili.com/x/player/pagelist?bvid={bvid}
 		}
 
-		static FfmpegMetadataHelp? _metahelper;
-		static FfmpegMetadataHelp MetaHelper {
-			get {
-				_metahelper ??= new();
-				return _metahelper;
-			}
-		}
-
 		public static void Process(string path) {
 			if (!Path.Exists(path)) {
 				Logger.Error($"Provided directory does not exist: \"{path}\".");
@@ -71,24 +63,32 @@ namespace BilibiliMobileDownloadProcessor {
 
 			var items = Scan([path]);
 
-			foreach (var item in items) {
+			var options = new ParallelOptions {
+				MaxDegreeOfParallelism = 4
+			};
+
+			Lock lk = new();
+			Parallel.ForEach(items, options, (item) => {
 				FilePath? res = null;
 				try {
 					res = Combine(item, ppath.Parent);
 				}
 				catch (Exception ex) {
-					Logger.Exception(ex, true);
+					lock (lk) {
+						Logger.Exception(ex, true);
+					}
 				}
 				if (res == null) {
-					Logger.Error($"Failed to process item {item.VideoPath.Parent.Parent}.");
+					lock (lk) {
+						Logger.Error($"Failed to process item {item.VideoPath.Parent.Parent}.");
+					}
 				}
 				else {
-					Logger.Success($"{item.VideoPath.Parent.Parent} to {res}.");
+					lock (lk) {
+						Logger.Success($"{item.VideoPath.Parent.Parent} to {res}.");
+					}
 				}
-			}
-
-			_metahelper?.Dispose();
-			_metahelper = null;
+			});
 		}
 
 		static FilePath? Combine(BiliEntry item, FilePath path) {
@@ -132,6 +132,7 @@ namespace BilibiliMobileDownloadProcessor {
 
 			PathHelper.EnsureFileCanExsist(finalpath);
 
+			using FfmpegMetadataHelp MetaHelper = new();
 			MetaHelper.Start();
 			MetaHelper.AddItem("title", part_name);
 			MetaHelper.AddItem("album", item.title);
