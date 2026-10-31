@@ -143,35 +143,94 @@ int main(void) {
 
 	// 导出文件
 	Logger::info << "Writing files...";
+
+	// 条目路径必须保持在 <CWD>\main_pak 内：拒绝空名、嵌入 NUL、
+	// 绝对/UNC/根目录形式、尾分隔符、任何 ".." 组件，以及组件内的
+	// 冒号（NTFS 命名流 / 盘符）。
+	auto isUnsafeEntryName = [](const std::string& raw) -> bool {
+		if (raw.empty() || raw.find('\0') != std::string::npos)
+			return true;
+
+		fs::path name;
+		try {
+			name = fs::path{ raw };
+		}
+		catch (const std::exception&) {
+			return true;
+		}
+
+		if (name.has_root_path() || !name.has_filename())
+			return true;
+
+		for (const auto& comp : name) {
+			const auto& s = comp.native();
+			if (s == L".." || s.find(L':') != std::wstring::npos)
+				return true;
+		}
+		return false;
+	};
+
 	size_t writed_count = 0;
+	size_t data_offset = offset;
 	for (const auto& info : info_list) {
+		const size_t entry_offset = data_offset;
+		data_offset += info.fileSize; // 无论成功失败都推进，保持后续条目内容对齐
+
+		if (isUnsafeEntryName(info.pPathname)) {
+			Logger::error << "ERROR: Unsafe entry pathname, skipped: " << info.pPathname << ".";
+			continue;
+		}
+
 		// 先确认路径有效性
 		fs::path outputpath = fs::current_path() / "main_pak" / info.pPathname;
-		EnsureFileCanExsist(outputpath);
+		if (!EnsureFileCanExsist(outputpath)) {
+			Logger::error << "ERROR: Failed to prepare output path: " << outputpath << ".";
+			continue;
+		}
 
+		bool entry_ok = false;
 		ofstream output(outputpath, ios::binary | ios::out);
 		if (!output) {
-			Logger::error << "ERROR: Failed to open file to be written.";
+			Logger::error << "ERROR: Failed to open file to be written: " << outputpath << ".";
 			continue;
 		}
 
 		try {
-			output.write(buffer.data() + offset, info.fileSize);
+			output.write(buffer.data() + entry_offset, info.fileSize);
+			if (!output) {
+				Logger::error << "ERROR: Failed to write file: " << outputpath << ".";
+			}
+			else {
+				entry_ok = true;
+			}
 		}
 		catch (const exception& e) {
 			Logger::Exception(e, true);
-			Logger::error << "ERROR: An error occurred while writting.";
+			Logger::error << "ERROR: An error occurred while writting: " << outputpath << ".";
 		}
 
 		output.close();
-		offset += info.fileSize;
+		if (!output) {
+			Logger::error << "ERROR: Failed to close file: " << outputpath << ".";
+			entry_ok = false;
+		}
+
+		if (!entry_ok) {
+			continue;
+		}
 
 		// 1. 定义100纳秒为单位的时长
 		using Duration100ns = std::chrono::duration<int64_t, std::ratio<1, 10'000'000>>;
 		// 2. 构造时间点（Windows MSVC 下，file_clock 的纪元就是 1601年）
 		fs::file_time_type tp{ Duration100ns(info.fileTime) };
-		// 3. 写入
-		fs::last_write_time(outputpath, tp);
+		// 3. 写入；时间戳失败不应中断整个解包
+		try {
+			fs::last_write_time(outputpath, tp);
+		}
+		catch (const exception& e) {
+			Logger::Exception(e, true);
+			Logger::error << "ERROR: Failed to set timestamp: " << outputpath << ".";
+		}
 
 		writed_count++;
 		Console::Write(std::format(L"\r{0}/{1}", writed_count, info_list.size()));
