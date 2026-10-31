@@ -191,9 +191,67 @@ void Work::CheckDirectory(fs::path d, int depth) {
 				continue;
 			}
 
-			fs::rename(data.path_rgb, d / "original" / data.path_rgb.filename());
-			fs::rename(data.path_a, d / "original" / data.path_a.filename());
-			fs::rename(tmp, fnl);
+			const fs::path park_rgb = d / "original" / data.path_rgb.filename();
+			const fs::path park_a = d / "original" / data.path_a.filename();
+			auto unique_park = [](const fs::path& source, fs::path& destination) -> bool {
+				std::error_code ec;
+				if (!fs::exists(source, ec)) {
+					if (ec) {
+						Logger::error << "Failed to inspect '" << source << "': " << ec.message() << ".";
+						return false;
+					}
+					destination = source;
+					return true;
+				}
+
+				const fs::path dir = source.parent_path();
+				const std::wstring stem = source.stem().wstring();
+				const std::wstring ext = source.extension().wstring();
+				for (int n = 1; ; ++n) {
+					const fs::path candidate = dir / (stem + L"(" + std::to_wstring(n) + L")" + ext);
+					const bool exists = fs::exists(candidate, ec);
+					if (ec) {
+						Logger::error << "Failed to inspect '" << candidate << "': " << ec.message() << ".";
+						return false;
+					}
+					if (!exists) {
+						destination = candidate;
+						return true;
+					}
+				}
+			};
+
+			fs::path dst_rgb;
+			fs::path dst_a;
+			if (!unique_park(park_rgb, dst_rgb) || !unique_park(park_a, dst_a)) {
+				continue;
+			}
+			if (dst_rgb != park_rgb || dst_a != park_a) {
+				Logger::warning << "Original(s) of '" << i.first << "' already exist in '"
+					<< (d / "original")
+					<< "'; parking under new names instead of overwriting.";
+			}
+
+			std::error_code rec;
+			fs::rename(data.path_rgb, dst_rgb, rec);
+			if (rec) {
+				Logger::error << "Failed to park '" << data.path_rgb << "' as '"
+					<< dst_rgb << "': " << rec.message() << ".";
+				continue;
+			}
+			std::error_code aec;
+			fs::rename(data.path_a, dst_a, aec);
+			if (aec) {
+				Logger::error << "Failed to park '" << data.path_a << "' as '"
+					<< dst_a << "': " << aec.message() << ".";
+				continue;
+			}
+			std::error_code fec;
+			fs::rename(tmp, fnl, fec);
+			if (fec) {
+				Logger::error << "Failed to finalise '" << fnl << "': " << fec.message() << ".";
+				continue;
+			}
 		}
 	}
 	return;
