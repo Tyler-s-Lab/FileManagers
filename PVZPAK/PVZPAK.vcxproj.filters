@@ -22,9 +22,4 @@
       <Filter>头文件</Filter>
     </ClCompile>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="PVZPAK_legacy.cpp">
-      <Filter>源文件</Filter>
-    </None>
-  </ItemGroup>
 </Project>
