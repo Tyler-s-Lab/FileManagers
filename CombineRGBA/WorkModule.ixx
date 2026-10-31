@@ -4,11 +4,14 @@
 
 export module WorkModule;
 
+import <algorithm>;
+import <cwctype>;
 import <filesystem>;
+import <fstream>;
+import <iostream>;
 import <set>;
 import <string>;
-import <iostream>;
-import <fstream>;
+import <system_error>;
 
 import LoggerModule;
 import WinHelperModule;
@@ -73,7 +76,10 @@ void Work::CheckDirectory(fs::path d, int depth) {
 		Logger::warning << d << " is not a directory.";
 		return;
 	}
-	if (d.filename().string() == "original") {
+	std::wstring leaf = d.filename().wstring();
+	std::transform(leaf.begin(), leaf.end(), leaf.begin(),
+		[](wchar_t c) { return static_cast<wchar_t>(std::towlower(c)); });
+	if (leaf == L"original") {
 		Logger::info << d << " is skipped.";
 		return;
 	}
@@ -166,7 +172,25 @@ void Work::CheckDirectory(fs::path d, int depth) {
 		fs::path tmp = L".\\tmp.png";
 		fs::path fnl = d / (i.first + L".png");
 		if (cv::imwrite(tmp.string(), res)) {
-			fs::create_directory(d / "original");
+			std::error_code cec;
+			fs::create_directory(d / "original", cec);
+			if (cec) {
+				Logger::error << "Failed to create '" << (d / "original")
+					<< "': " << cec.message() << ".";
+				continue;
+			}
+
+			// 拒绝通过 junction/symlink 重定向的 original：MSVC 的
+			// MoveFileExW 会跟随中间路径组件的 reparse point，导致
+			// pair 被搬进链接目标并静默覆盖同名文件。
+			std::error_code lec;
+			const fs::file_status original_status = fs::symlink_status(d / "original", lec);
+			if (lec || fs::is_symlink(original_status) || !fs::is_directory(original_status)) {
+				Logger::error << "Refusing to relocate into a link or non-directory: "
+					<< (d / "original") << ", skipping.";
+				continue;
+			}
+
 			fs::rename(data.path_rgb, d / "original" / data.path_rgb.filename());
 			fs::rename(data.path_a, d / "original" / data.path_a.filename());
 			fs::rename(tmp, fnl);
