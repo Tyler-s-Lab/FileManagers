@@ -1,7 +1,11 @@
-﻿#include <list>
+﻿#include <cstdint>
+#include <cstring>
+#include <list>
 #include <fstream>
 #include <filesystem>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 import LoggerModule;
 import PathHelperModule;
@@ -25,8 +29,15 @@ int main(void) {
 	catch (const exception& e) {
 		Logger::Exception(e, true);
 		Logger::error << "Failed to read " << main_pak_path << ".";
+		return EXIT_FAILURE;
 	}
 	// 从这里开始，对缓冲区操作
+
+	// 魔数至少需要 8 字节；不足时不能继续解析
+	if (buffer.size() < 8) {
+		Logger::error << "File " << main_pak_path << " is too small to contain a valid header.";
+		return EXIT_FAILURE;
+	}
 
 	// 包体异或加密，逐字节使用0xF7解密
 	Logger::info << "Decrypting data...";
@@ -40,7 +51,6 @@ int main(void) {
 
 	// 检查文件头魔数
 	if (
-		buffer.size() < 8 ||
 		buffer[0] != 0xC0 ||
 		buffer[1] != 0x4A ||
 		buffer[2] != 0xC0 ||
@@ -58,45 +68,74 @@ int main(void) {
 
 	// 读取 文件信息
 	Logger::info << "Reading file list...";
-	while (1) {
+	bool found_terminator = false;
+	auto fits = [&buffer](size_t pos, size_t count) {
+		return pos <= buffer.size() && count <= buffer.size() - pos;
+	};
+	while (offset < buffer.size()) {
 		// 第0字节 - 0:继续, 0x80:结束
-		char status = buffer[offset++];
-		if (0 != status) {
-			if (0x80 != status) {
-				Logger::warning << "Unexpected seperator in file list. (at: " << offset << ").";
-			}
+		const unsigned char status = static_cast<unsigned char>(buffer[offset++]);
+		if (0x80 == status) {
+			found_terminator = true;
 			break;
+		}
+		if (0x00 != status) {
+			Logger::warning << "Unexpected seperator in file list. (at: " << offset << ").";
+			return EXIT_FAILURE;
 		}
 		auto& info = info_list.emplace_back();
 
 		// 第1字节，表示文件名（含路径）的字符数
-		int filenamesize = buffer[offset++];
-		std::string filename;
-		filename.reserve(filenamesize);
+		if (!fits(offset, 1)) {
+			Logger::error << "Unexpected end of file list while reading name length.";
+			return EXIT_FAILURE;
+		}
+		const size_t filenamesize = static_cast<unsigned char>(buffer[offset++]);
 
 		// 复制文件名
-		for (int i = 0; i < filenamesize; ++i) {
-			filename.push_back(buffer[offset++]);
+		if (!fits(offset, filenamesize)) {
+			Logger::error << "Unexpected end of file list while reading name.";
+			return EXIT_FAILURE;
 		}
-		info.pPathname = filename;
+		if (0 != filenamesize) {
+			info.pPathname.assign(buffer.data() + offset, filenamesize);
+		}
+		offset += filenamesize;
 
 		// 该处的 4 个字节表示文件长度
-		info.fileSize = *((unsigned int*)(buffer.data() + offset));
+		if (!fits(offset, 4)) {
+			Logger::error << "Unexpected end of file list while reading file size.";
+			return EXIT_FAILURE;
+		}
+		std::memcpy(&info.fileSize, buffer.data() + offset, sizeof(info.fileSize));
 		offset += 4;
 
 		// 该处的 8 个字节表示文件时间 (FILETIME)
-		info.fileTime = *((long long*)(buffer.data() + offset));
+		if (!fits(offset, 8)) {
+			Logger::error << "Unexpected end of file list while reading file time.";
+			return EXIT_FAILURE;
+		}
+		std::memcpy(&info.fileTime, buffer.data() + offset, sizeof(info.fileTime));
 		offset += 8;
+	}
+	if (!found_terminator) {
+		Logger::error << "Unexpected end of file list: missing terminator.";
+		return EXIT_FAILURE;
 	}
 	Logger::success << "File list read.";
 
 	// 计算 文件长度 总和，并与 缓冲区的剩余空间 比较
 	{
+		const size_t data_size = buffer.size() - offset;
 		size_t totalSize = 0;
 		for (const auto& info : info_list) {
+			if (info.fileSize > data_size - totalSize) {
+				Logger::error << "Size of file " << main_pak_path << " is unexpected.";
+				return EXIT_FAILURE;
+			}
 			totalSize += info.fileSize;
 		}
-		if (totalSize != buffer.size() - offset) {
+		if (totalSize != data_size) {
 			Logger::error << "Size of file " << main_pak_path << " is unexpected.";
 			return EXIT_FAILURE;
 		}
