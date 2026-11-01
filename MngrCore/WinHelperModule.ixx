@@ -52,12 +52,24 @@ ReTryGet:
 	}
 
 	std::wstring path;
-	path.reserve(exeDirString.size() + 7);
-	path.assign(LR"(\\?\)");
-	path += exeDirString;
-	if (!path.empty() && path.back() != L'\\')
+	path.reserve(exeDirString.size() + 8);
+
+	if (exeDirString.rfind(LR"(\\?\)", 0) == 0 || exeDirString.rfind(LR"(\\.\)", 0) == 0) {
+		// Already an extended-length or device path; do not prefix it twice.
+		path = exeDirString;
+	}
+	else if (exeDirString.rfind(LR"(\\)", 0) == 0) {
+		// \\server\share... -> \\?\UNC\server\share...
+		path.assign(LR"(\\?\UNC\)");
+		path += exeDirString.substr(2);
+	}
+	else {
+		path.assign(LR"(\\?\)");
+		path += exeDirString;
+	}
+
+	if (path.empty() || path.back() != L'\\')
 		path.push_back(L'\\');
-	path.resize(path.size() + 2);
 
 	if (0 == SetCurrentDirectoryW(path.c_str())) {
 		return -2;
