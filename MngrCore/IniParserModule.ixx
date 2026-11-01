@@ -148,26 +148,38 @@ std::optional<int64_t> try_parse_int(std::string_view token, size_t* pos) {
 	if (token.empty()) return {};
 
 	int base = 10;
+	size_t prefix = 0;
 	if (token.size() >= 2 && token[0] == '0') {
 		char c = token[1];
 		if (c == 'x' || c == 'X') {
 			base = 16;
-			token = token.substr(2);
+			prefix = 2;
+			token = token.substr(prefix);
 		}
 		else if (c == 'b' || c == 'B') {
 			base = 2;
-			token = token.substr(2);
+			prefix = 2;
+			token = token.substr(prefix);
 		}
 		else {
 			base = 8;
-			token = token.substr(1);
+			prefix = 1;
+			token = token.substr(prefix);
 		}
 	}
 
 	if (token.empty()) return {};
 
 	try {
-		int64_t result = std::stoll(token.data(), pos, base);
+		// stoll requires a null-terminated buffer. Copy the view and require
+		// the parser to consume the whole token, not just a prefix.
+		std::string text{ token };
+		size_t consumed = 0;
+		int64_t result = std::stoll(text, &consumed, base);
+		if (consumed != text.size())
+			return {};
+		if (pos)
+			*pos = prefix + consumed;
 		return result;
 	}
 	catch (...) {
@@ -181,7 +193,13 @@ std::optional<double> try_parse_double(std::string_view token, size_t* pos) {
 	if (token.empty()) return {};
 
 	try {
-		double result = std::stod(token.data(), pos);
+		std::string text{ token };
+		size_t consumed = 0;
+		double result = std::stod(text, &consumed);
+		if (consumed != text.size())
+			return {};
+		if (pos)
+			*pos = consumed;
 		return result;
 	}
 	catch (...) {

@@ -512,23 +512,30 @@ void Console::BufferHeight(int height) {
 // 标题
 // ============================================================
 std::string Console::Title() {
-	char buf[256];
-	GetConsoleTitleA(buf, sizeof(buf));
-	return std::string(buf);
+	char buf[256]{};
+	const DWORD length = GetConsoleTitleA(buf, sizeof(buf));
+	if (length == 0)
+		return {};
+	return std::string(buf, length < sizeof(buf) ? length : sizeof(buf) - 1);
 }
 
 void Console::Title(std::string_view title) {
-	SetConsoleTitleA(title.data());
+	std::string value(title);
+	SetConsoleTitleA(value.c_str());
 }
 
 std::wstring Console::TitleW() {
-	wchar_t buf[256];
-	GetConsoleTitleW(buf, sizeof(buf) / sizeof(wchar_t));
-	return std::wstring(buf);
+	wchar_t buf[256]{};
+	const DWORD length = GetConsoleTitleW(buf, sizeof(buf) / sizeof(wchar_t));
+	if (length == 0)
+		return {};
+	const size_t capacity = sizeof(buf) / sizeof(wchar_t);
+	return std::wstring(buf, length < capacity ? length : capacity - 1);
 }
 
 void Console::Title(std::wstring_view title) {
-	SetConsoleTitleW(title.data());
+	std::wstring value(title);
+	SetConsoleTitleW(value.c_str());
 }
 
 // ============================================================
