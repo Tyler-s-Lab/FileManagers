@@ -132,11 +132,15 @@ inline int seh_filter(PEXCEPTION_POINTERS ex, EXCEPTION_RECORD** er, CONTEXT** c
 	}
 }
 
+std::string ParseWin32ErrorCode(DWORD code);
+
 std::string ParseErrorCode(DWORD code) {
 	DWORD lasterrcode = code;
 	std::string buf;
 	LPSTR pBuffer = NULL;
 	HMODULE hNtDll = GetModuleHandleA("ntdll.dll");
+	if (hNtDll == nullptr)
+		return ParseWin32ErrorCode(code);
 
 	FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
 		hNtDll, lasterrcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&pBuffer, 0, NULL);
@@ -160,7 +164,7 @@ std::string ParseErrorCode(DWORD code) {
 		return buf;
 	}
 
-	return buf;
+	return ParseWin32ErrorCode(code);
 }
 
 std::string ParseWin32ErrorCode(DWORD code) {
