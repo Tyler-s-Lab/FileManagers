@@ -24,7 +24,15 @@ public:
 		Exception,
 		Success,
 		COUNT
-	} type;
+	};
+
+	constexpr LoggerStreamGetter(Type value) noexcept : type(value) {
+	}
+
+private:
+	friend class LoggerWrapperStream;
+
+	Type type;
 };
 
 class _LOGTAB_T {

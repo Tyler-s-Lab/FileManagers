@@ -2,6 +2,7 @@
 
 export import <string>;
 export import <format>;
+export import <mutex>;
 export import ConsoleModule;
 export import LoggerHelperModule;
 
@@ -11,6 +12,7 @@ public:
 	/// 初始化。
 	/// </summary>
 	static void Init() {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		std::setlocale(LC_ALL, ".UTF-8");
 		Console::SetEncodingToUTF8();
 	}
@@ -19,24 +21,27 @@ public:
 	/// 显示消息并等待用户按任意键继续。
 	/// </summary>
 	static void Pause() {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		Console::WriteLine("Press any key to continue . . .");
 		Console::ReadKey();
 	}
 
-	static inline LoggerStreamGetter info{ LoggerStreamGetter::Type::Info };
-	static inline LoggerStreamGetter warning{ LoggerStreamGetter::Type::Warning };
-	static inline LoggerStreamGetter error{ LoggerStreamGetter::Type::Error };
-	static inline LoggerStreamGetter exception{ LoggerStreamGetter::Type::Exception };
-	static inline LoggerStreamGetter success{ LoggerStreamGetter::Type::Success };
+	static inline const LoggerStreamGetter info{ LoggerStreamGetter::Type::Info };
+	static inline const LoggerStreamGetter warning{ LoggerStreamGetter::Type::Warning };
+	static inline const LoggerStreamGetter error{ LoggerStreamGetter::Type::Error };
+	static inline const LoggerStreamGetter exception{ LoggerStreamGetter::Type::Exception };
+	static inline const LoggerStreamGetter success{ LoggerStreamGetter::Type::Success };
 
 	/**
 	 * @brief 不改变颜色输出 Info 级别的消息（带换行）。
 	 */
 	static void Info(std::string_view message) {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		Console::Write("[info] ");
 		return Console::WriteLine(message);
 	}
 	static void Info(std::wstring_view message) {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		Console::Write("[info] ");
 		return Console::WriteLine(message);
 	}
@@ -45,9 +50,11 @@ public:
 	 * @brief 以黄色输出 Warning 级别的消息（带换行）。
 	 */
 	static void Warning(std::string_view message) {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		return WriteColoredLine("[warning] ", message, Console::ConsoleColor::Yellow);
 	}
 	static void Warning(std::wstring_view message) {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		return WriteColoredLine(L"[warning] ", message, Console::ConsoleColor::Yellow);
 	}
 
@@ -55,9 +62,11 @@ public:
 	 * @brief 以红色输出 Error 级别的消息（带换行）。
 	 */
 	static void Error(std::string_view message) {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		return WriteColoredLine("[error] ", message, Console::ConsoleColor::Red);
 	}
 	static void Error(std::wstring_view message) {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		return WriteColoredLine(L"[error] ", message, Console::ConsoleColor::Red);
 	}
 
@@ -65,9 +74,11 @@ public:
 	 * @brief 以洋红背景输出 Exception 级别的消息（带换行）。
 	 */
 	static void Exception(std::string_view message) {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		return WriteColoredLine("[exception] ", message, Console::ConsoleColor::Cyan, Console::ConsoleColor::Magenta);
 	}
 	static void Exception(std::wstring_view message) {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		return WriteColoredLine(L"[exception] ", message, Console::ConsoleColor::Cyan, Console::ConsoleColor::Magenta);
 	}
 
@@ -75,6 +86,7 @@ public:
 	 * @brief 自动输出 Exception 级别的消息（带换行）。
 	 */
 	static void Exception(const std::exception& e, bool inner = false) {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		try {
 			std::rethrow_if_nested(e);
 		}
@@ -91,13 +103,17 @@ public:
 	 * @brief 以绿色输出 Success 级别的消息（带换行）。
 	 */
 	static void Success(std::string_view message) {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		return WriteColoredLine("[success] ", message, Console::ConsoleColor::Green);
 	}
 	static void Success(std::wstring_view message) {
+		std::lock_guard<std::recursive_mutex> lock(m_mutex);
 		return WriteColoredLine(L"[success] ", message, Console::ConsoleColor::Green);
 	}
 
 private:
+	static inline std::recursive_mutex m_mutex;
+
 	static void WriteColoredLine(std::string_view perfix, std::string_view message, Console::ConsoleColor foreground_color, Console::ConsoleColor background_color = Console::ConsoleColor::Empty) {
 		Logger::WriteColored(perfix, message, foreground_color, background_color);
 		Console::WriteLine();
