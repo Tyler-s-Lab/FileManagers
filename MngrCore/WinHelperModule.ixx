@@ -6,6 +6,7 @@ import <string>;
 import <vector>;
 import <cstdio>;
 import <filesystem>;
+import <system_error>;
 import <Windows.h>;
 import <iostream>;
 
@@ -35,13 +36,25 @@ ReTryGet:
 	if (0 != _get_wpgmptr(&p)) {
 		return -1;
 	}
-	std::filesystem::path exePath = std::filesystem::absolute(p);
+	std::error_code ec;
+	std::filesystem::path exePath = std::filesystem::absolute(p, ec);
+	if (ec) {
+		return -3;
+	}
 	std::filesystem::path exeDir = exePath.parent_path();
 
+	std::wstring exeDirString;
+	try {
+		exeDirString = exeDir.wstring();
+	}
+	catch (const std::filesystem::filesystem_error&) {
+		return -4;
+	}
+
 	std::wstring path;
-	path.reserve(exeDir.wstring().size() + 7);
+	path.reserve(exeDirString.size() + 7);
 	path.assign(LR"(\\?\)");
-	path += exeDir.wstring();
+	path += exeDirString;
 	if (!path.empty() && path.back() != L'\\')
 		path.push_back(L'\\');
 	path.resize(path.size() + 2);

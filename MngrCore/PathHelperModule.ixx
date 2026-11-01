@@ -2,6 +2,7 @@
 
 import <filesystem>;
 import <string>;
+import <system_error>;
 
 namespace fs = std::filesystem;
 
@@ -13,9 +14,19 @@ import LoggerModule;
  * @return 成功返回 true，否则 false
  */
 bool CreateAllDirectory(const fs::path& dirPath) {
-	// 如果目录已存在（且确实是一个目录），直接返回 true
-	if (fs::is_directory(dirPath))
+	// 空路径就是当前目录，已经存在；这也让相对路径的顶层目录可以创建。
+	if (dirPath.empty())
 		return true;
+
+	// 如果目录已存在（且确实是一个目录），直接返回 true。
+	// 使用 error_code 重载，避免权限/路径错误直接抛异常。
+	std::error_code ec;
+	if (fs::is_directory(dirPath, ec))
+		return true;
+	if (ec && ec != std::errc::no_such_file_or_directory) {
+		Logger::Error("Failed to inspect directory while creating it: " + ec.message());
+		return false;
+	}
 
 	// 如果是根目录，无法再向上，返回 false
 	// 根目录判断：路径有根部分且等于其根部分（如 "/" 或 "C:\"）
@@ -26,19 +37,21 @@ bool CreateAllDirectory(const fs::path& dirPath) {
 	if (!CreateAllDirectory(dirPath.parent_path()))
 		return false;
 
-	// 尝试创建当前目录
-	bool res;
-	try {
-		fs::create_directory(dirPath);   // 父目录已确保存在，只创建单层目录
-		res = true;
-	}
-	catch (const std::exception& e) {
-		Logger::Exception(e, true);
-		Logger::Error("Failed to 'CreateAllDirectory' because an exception occurs.");
-		res = false;
+	// 尝试创建当前目录；同样使用 error_code 重载。
+	ec.clear();
+	if (fs::create_directory(dirPath, ec))
+		return true;
+	if (ec) {
+		if (ec == std::errc::file_exists) {
+			std::error_code check;
+			if (fs::is_directory(dirPath, check))
+				return true;
+		}
+		Logger::Error("Failed to create directory: " + ec.message());
+		return false;
 	}
 
-	return res;
+	return true;
 }
 
 /**
