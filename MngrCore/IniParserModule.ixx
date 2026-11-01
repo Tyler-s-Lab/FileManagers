@@ -49,17 +49,43 @@ std::optional<std::shared_ptr<ini::IniConfig>> ini::read_ini_file(const std::str
 
 	std::shared_ptr<IniConfig> res = std::make_shared<IniConfig>();
 	IniConfig& config = *res;
-	std::string line;
-	size_t line_no = 0;
 	constexpr size_t MAX_LINE_SIZE = 4096; // Limit maximum line length
+	std::string line;
+	line.reserve(MAX_LINE_SIZE + 1);
+	size_t line_no = 0;
 
-	while (std::getline(file, line)) {
+	// Read at most MAX_LINE_SIZE characters into the line buffer before
+	// discarding the rest of an overlong line. std::getline would allocate the
+	// whole line first, making the size check too late for hostile input.
+	auto read_line = [&file, MAX_LINE_SIZE](std::string& out, bool& too_long) -> bool {
+		out.clear();
+		too_long = false;
+
+		char ch = 0;
+		while (file.get(ch)) {
+			if (ch == '\n')
+				return true;
+			if (out.size() >= MAX_LINE_SIZE) {
+				too_long = true;
+				while (file.get(ch) && ch != '\n') {
+				}
+				return true;
+			}
+			out.push_back(ch);
+		}
+		return !out.empty();
+	};
+
+	bool too_long = false;
+	while (read_line(line, too_long)) {
 		++line_no;
-		// Reject lines exceeding a reasonable length to prevent malicious files
-		if (line.size() > MAX_LINE_SIZE) {
+		if (too_long) {
 			std::cerr << "Warning: Line " << line_no << " is too long, skipped.\n";
 			continue;
 		}
+
+		if (!line.empty() && line.back() == '\r')
+			line.pop_back();
 
 		if (line.empty() || line.front() == ';' || line.front() == '#' || line.front() == '[') {
 			continue;
