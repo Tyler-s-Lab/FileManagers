@@ -97,12 +97,17 @@ std::wstring utf8_try_to_wstring(std::string_view utf8_str) {
 std::string wstring_try_to_utf8(std::wstring_view wstr) {
 	if (wstr.empty() || wstr.size() > (0x7FFFFFFF - 50)) return "";
 
-	int len = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, wstr.data(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
-	if (len == 0) return "";
+	const int length = WideCharToMultiByte(
+		CP_UTF8, WC_ERR_INVALID_CHARS, wstr.data(), static_cast<int>(wstr.size()),
+		nullptr, 0, nullptr, nullptr);
+	if (length <= 0) return "";
 
-	std::string result(len, '\0');
-	if (WideCharToMultiByte(CP_UTF8, 0, wstr.data(), -1, &result[0], len, nullptr, nullptr) != len)
+	std::string result(static_cast<size_t>(length), '\0');
+	if (WideCharToMultiByte(
+		CP_UTF8, WC_ERR_INVALID_CHARS, wstr.data(), static_cast<int>(wstr.size()),
+		result.data(), length, nullptr, nullptr) != length) {
 		return "";
+	}
 	return result;
 }
 
