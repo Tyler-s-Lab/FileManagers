@@ -17,16 +17,23 @@ namespace MngrHelper {
 
 			// 2. 统一路径分隔符
 			res = res.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+
+			// 3. 在去掉尾部分隔符前记录根；否则 C:\ 会变成 C:，
+			//    丢失“根目录”语义。仅根路径直接返回，保留其原始分隔符。
+			string? root = Path.IsPathRooted(res) ? Path.GetPathRoot(res) : null;
+			if (root is not null && res.Length == root.Length)
+				return root;
+
 			res = res.TrimEnd(Path.DirectorySeparatorChar);
 
-			// 3. 检查并移除非法字符（除了路径分隔符）
+			// 4. 检查并移除非法字符（除了路径分隔符）
 			res = RemoveInvalidPathCharacters(res);
 
-			// 4. 处理路径中的每个部分
+			// 5. 处理路径中的每个部分
 			if (Path.IsPathRooted(res)) {
 				// 对于绝对路径，保留根部分
-				string root = Path.GetPathRoot(res) ?? string.Empty;
-				string remaining = res[root.Length..];
+				root = Path.GetPathRoot(res) ?? string.Empty;
+				string remaining = root.Length <= res.Length ? res[root.Length..] : string.Empty;
 
 				if (!string.IsNullOrEmpty(remaining)) {
 					string[] parts = remaining.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
