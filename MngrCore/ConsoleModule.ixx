@@ -1,6 +1,7 @@
 ﻿export module ConsoleModule;
 
 import <string>;
+import <string_view>;
 import <cstdint>;
 import <Windows.h>;
 
@@ -91,6 +92,10 @@ public:
 private:
 	static HANDLE GetOutputHandle();
 	static HANDLE GetInputHandle();
+	static bool   IsConsoleHandle(HANDLE handle);
+	static bool   WriteAll(HANDLE handle, const char* data, size_t size);
+	static bool   WriteWideText(HANDLE handle, std::wstring_view text);
+	static bool   ReadByte(HANDLE handle, char& ch);
 	static WORD   GetCurrentAttributes();
 	static void   SaveOriginalAttributes();
 	static void   ConsumeNewLine();
@@ -104,18 +109,79 @@ private:
 // 内部句柄获取
 // ============================================================
 HANDLE Console::GetOutputHandle() {
-	static HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
-	return hOut;
+	return GetStdHandle(STD_OUTPUT_HANDLE);
 }
 
 HANDLE Console::GetInputHandle() {
-	static HANDLE hIn = GetStdHandle(STD_INPUT_HANDLE);
-	return hIn;
+	return GetStdHandle(STD_INPUT_HANDLE);
+}
+
+bool Console::IsConsoleHandle(HANDLE handle) {
+	DWORD mode = 0;
+	return handle != NULL && handle != INVALID_HANDLE_VALUE &&
+		GetConsoleMode(handle, &mode) != 0;
+}
+
+bool Console::WriteAll(HANDLE handle, const char* data, size_t size) {
+	if (handle == NULL || handle == INVALID_HANDLE_VALUE)
+		return false;
+
+	size_t offset = 0;
+	while (offset < size) {
+		const size_t remaining = size - offset;
+		const DWORD chunk = static_cast<DWORD>(remaining > 0x7FFFFFFF ? 0x7FFFFFFF : remaining);
+		DWORD written = 0;
+		if (!WriteFile(handle, data + offset, chunk, &written, nullptr) || written == 0)
+			return false;
+		offset += written;
+	}
+	return true;
+}
+
+bool Console::WriteWideText(HANDLE handle, std::wstring_view text) {
+	if (text.empty())
+		return handle != NULL && handle != INVALID_HANDLE_VALUE;
+
+	if (IsConsoleHandle(handle)) {
+		size_t offset = 0;
+		while (offset < text.size()) {
+			const size_t remaining = text.size() - offset;
+			const DWORD chunk = static_cast<DWORD>(remaining > 0x7FFFFFFF ? 0x7FFFFFFF : remaining);
+			DWORD written = 0;
+			if (!WriteConsoleW(handle, text.data() + offset, chunk, &written, nullptr) || written == 0)
+				return false;
+			offset += written;
+		}
+		return true;
+	}
+
+	const int length = WideCharToMultiByte(
+		CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+		nullptr, 0, nullptr, nullptr);
+	if (length <= 0)
+		return false;
+
+	std::string bytes(static_cast<size_t>(length), '\0');
+	if (WideCharToMultiByte(
+		CP_UTF8, 0, text.data(), static_cast<int>(text.size()),
+		bytes.data(), length, nullptr, nullptr) != length) {
+		return false;
+	}
+	return WriteAll(handle, bytes.data(), bytes.size());
+}
+
+bool Console::ReadByte(HANDLE handle, char& ch) {
+	if (handle == NULL || handle == INVALID_HANDLE_VALUE)
+		return false;
+
+	DWORD read = 0;
+	return ReadFile(handle, &ch, 1, &read, nullptr) != 0 && read == 1;
 }
 
 WORD Console::GetCurrentAttributes() {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
-	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
+	if (!GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi))
+		return static_cast<WORD>(ConsoleColor::Gray);
 	return csbi.wAttributes;
 }
 
@@ -127,8 +193,8 @@ void Console::SaveOriginalAttributes() {
 }
 
 void Console::ConsumeNewLine() {
-	INPUT_RECORD ir;
-	DWORD        read;
+	INPUT_RECORD ir{};
+	DWORD        read = 0;
 	if (PeekConsoleInputA(GetInputHandle(), &ir, 1, &read) && read > 0) {
 		if (ir.EventType == KEY_EVENT && ir.Event.KeyEvent.bKeyDown &&
 			ir.Event.KeyEvent.uChar.AsciiChar == '\n') {
@@ -141,11 +207,33 @@ void Console::ConsumeNewLine() {
 // 输出实现
 // ============================================================
 void Console::Write(std::string_view text) {
-	WriteConsoleA(GetOutputHandle(), text.data(), static_cast<DWORD>(text.size()), NULL, NULL);
+	if (text.empty())
+		return;
+
+	HANDLE handle = GetOutputHandle();
+	if (handle == NULL || handle == INVALID_HANDLE_VALUE)
+		return;
+
+	if (!IsConsoleHandle(handle)) {
+		WriteAll(handle, text.data(), text.size());
+		return;
+	}
+
+	size_t offset = 0;
+	while (offset < text.size()) {
+		const size_t remaining = text.size() - offset;
+		const DWORD chunk = static_cast<DWORD>(remaining > 0x7FFFFFFF ? 0x7FFFFFFF : remaining);
+		DWORD written = 0;
+		if (!WriteConsoleA(handle, text.data() + offset, chunk, &written, nullptr) || written == 0)
+			return;
+		offset += written;
+	}
 }
 
 void Console::Write(std::wstring_view text) {
-	WriteConsoleW(GetOutputHandle(), text.data(), static_cast<DWORD>(text.size()), NULL, NULL);
+	if (text.empty())
+		return;
+	WriteWideText(GetOutputHandle(), text);
 }
 
 void Console::WriteLine(std::string_view text) {
@@ -166,53 +254,121 @@ void Console::WriteLine() {
 // 输入实现
 // ============================================================
 int Console::Read() {
-	char   ch;
-	DWORD  read;
-	ReadConsoleA(GetInputHandle(), &ch, 1, &read, nullptr);
-	if (ch == '\r') {
-		ConsumeNewLine();
+	HANDLE handle = GetInputHandle();
+	if (handle == NULL || handle == INVALID_HANDLE_VALUE)
+		return -1;
+
+	char ch = 0;
+	if (IsConsoleHandle(handle)) {
+		DWORD read = 0;
+		if (!ReadConsoleA(handle, &ch, 1, &read, nullptr) || read == 0)
+			return -1;
+		if (ch == '\r')
+			ConsumeNewLine();
+	}
+	else if (!ReadByte(handle, ch)) {
+		return -1;
 	}
 	return static_cast<unsigned char>(ch);
 }
 
 std::string Console::ReadLine() {
 	std::string result;
-	char        ch;
-	DWORD       read;
-	while (ReadConsoleA(GetInputHandle(), &ch, 1, &read, nullptr)) {
-		if (ch == '\r') {
-			ConsumeNewLine();
-			break;
+	HANDLE handle = GetInputHandle();
+	if (handle == NULL || handle == INVALID_HANDLE_VALUE)
+		return result;
+
+	if (IsConsoleHandle(handle)) {
+		char  ch = 0;
+		DWORD read = 0;
+		while (ReadConsoleA(handle, &ch, 1, &read, nullptr) && read > 0) {
+			if (ch == '\r') {
+				ConsumeNewLine();
+				break;
+			}
+			result.push_back(ch);
 		}
-		result += ch;
+		return result;
 	}
+
+	char ch = 0;
+	while (ReadByte(handle, ch)) {
+		if (ch == '\n')
+			break;
+		result.push_back(ch);
+	}
+	if (!result.empty() && result.back() == '\r')
+		result.pop_back();
 	return result;
 }
 
 std::wstring Console::ReadLineW() {
 	std::wstring result;
-	wchar_t      ch;
-	DWORD        read;
-	while (ReadConsoleW(GetInputHandle(), &ch, 1, &read, nullptr)) {
-		if (ch == L'\r') {
-			wchar_t dummy;
-			DWORD   dummyRead;
-			ReadConsoleW(GetInputHandle(), &dummy, 1, &dummyRead, nullptr);
-			break;
+	HANDLE handle = GetInputHandle();
+	if (handle == NULL || handle == INVALID_HANDLE_VALUE)
+		return result;
+
+	if (IsConsoleHandle(handle)) {
+		wchar_t ch = 0;
+		DWORD   read = 0;
+		while (ReadConsoleW(handle, &ch, 1, &read, nullptr) && read > 0) {
+			if (ch == L'\r') {
+				wchar_t dummy = 0;
+				DWORD   dummyRead = 0;
+				ReadConsoleW(handle, &dummy, 1, &dummyRead, nullptr);
+				break;
+			}
+			if (ch == L'\n')
+				break;
+			result.push_back(ch);
 		}
-		result += ch;
+		return result;
+	}
+
+	std::string bytes;
+	char        ch = 0;
+	while (ReadByte(handle, ch)) {
+		if (ch == '\n')
+			break;
+		bytes.push_back(ch);
+	}
+	if (!bytes.empty() && bytes.back() == '\r')
+		bytes.pop_back();
+	if (bytes.empty())
+		return result;
+
+	const int length = MultiByteToWideChar(
+		CP_UTF8, 0, bytes.data(), static_cast<int>(bytes.size()), nullptr, 0);
+	if (length <= 0)
+		return result;
+
+	result.resize(static_cast<size_t>(length));
+	if (MultiByteToWideChar(
+		CP_UTF8, 0, bytes.data(), static_cast<int>(bytes.size()),
+		result.data(), length) != length) {
+		result.clear();
 	}
 	return result;
 }
 
 Console::KeyInfo Console::ReadKey(bool intercept) {
-	INPUT_RECORD ir;
-	DWORD        read;
-	while (true) {
-		ReadConsoleInputA(GetInputHandle(), &ir, 1, &read);
+	KeyInfo info{};
+	HANDLE  handle = GetInputHandle();
+	if (handle == NULL || handle == INVALID_HANDLE_VALUE)
+		return info;
+
+	if (!IsConsoleHandle(handle)) {
+		char ch = 0;
+		if (ReadByte(handle, ch))
+			info.KeyChar = ch;
+		return info;
+	}
+
+	INPUT_RECORD ir{};
+	DWORD        read = 0;
+	while (ReadConsoleInputW(handle, &ir, 1, &read) && read > 0) {
 		if (ir.EventType == KEY_EVENT && ir.Event.KeyEvent.bKeyDown) {
 			KEY_EVENT_RECORD key = ir.Event.KeyEvent;
-			KeyInfo info;
 			info.KeyChar = key.uChar.AsciiChar;
 			info.KeyCode = key.wVirtualKeyCode;
 			info.Shift = (key.dwControlKeyState & SHIFT_PRESSED) != 0;
@@ -220,12 +376,13 @@ Console::KeyInfo Console::ReadKey(bool intercept) {
 			info.Alt = (key.dwControlKeyState & (LEFT_ALT_PRESSED | RIGHT_ALT_PRESSED)) != 0;
 
 			if (!intercept && info.KeyChar != '\0') {
-				DWORD w;
-				WriteConsoleA(GetOutputHandle(), &info.KeyChar, 1, &w, nullptr);
+				DWORD written = 0;
+				WriteConsoleA(GetOutputHandle(), &info.KeyChar, 1, &written, nullptr);
 			}
 			return info;
 		}
 	}
+	return info;
 }
 
 // ============================================================
@@ -260,26 +417,26 @@ void Console::ResetColor() {
 // 光标
 // ============================================================
 int Console::CursorLeft() {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 	return csbi.dwCursorPosition.X;
 }
 
 void Console::CursorLeft(int left) {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 	csbi.dwCursorPosition.X = static_cast<SHORT>(left);
 	SetConsoleCursorPosition(GetOutputHandle(), csbi.dwCursorPosition);
 }
 
 int Console::CursorTop() {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 	return csbi.dwCursorPosition.Y;
 }
 
 void Console::CursorTop(int top) {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 	csbi.dwCursorPosition.Y = static_cast<SHORT>(top);
 	SetConsoleCursorPosition(GetOutputHandle(), csbi.dwCursorPosition);
@@ -296,13 +453,13 @@ void Console::SetCursorPosition(int left, int top) {
 // 窗口大小
 // ============================================================
 int Console::WindowWidth() {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 	return csbi.srWindow.Right - csbi.srWindow.Left + 1;
 }
 
 void Console::WindowWidth(int width) {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 	SMALL_RECT rect = csbi.srWindow;
 	rect.Right = rect.Left + static_cast<SHORT>(width) - 1;
@@ -310,13 +467,13 @@ void Console::WindowWidth(int width) {
 }
 
 int Console::WindowHeight() {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 	return csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
 }
 
 void Console::WindowHeight(int height) {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 	SMALL_RECT rect = csbi.srWindow;
 	rect.Bottom = rect.Top + static_cast<SHORT>(height) - 1;
@@ -324,13 +481,13 @@ void Console::WindowHeight(int height) {
 }
 
 int Console::BufferWidth() {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 	return csbi.dwSize.X;
 }
 
 void Console::BufferWidth(int width) {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 	COORD size = csbi.dwSize;
 	size.X = static_cast<SHORT>(width);
@@ -338,13 +495,13 @@ void Console::BufferWidth(int width) {
 }
 
 int Console::BufferHeight() {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 	return csbi.dwSize.Y;
 }
 
 void Console::BufferHeight(int height) {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 	COORD size = csbi.dwSize;
 	size.Y = static_cast<SHORT>(height);
@@ -378,7 +535,7 @@ void Console::Title(std::wstring_view title) {
 // 其他
 // ============================================================
 void Console::Clear() {
-	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	CONSOLE_SCREEN_BUFFER_INFO csbi{};
 	GetConsoleScreenBufferInfo(GetOutputHandle(), &csbi);
 
 	DWORD count = csbi.dwSize.X * csbi.dwSize.Y;
