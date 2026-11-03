@@ -49,6 +49,10 @@ namespace BilibiliMobileDownloadProcessor {
 			// https://api.bilibili.com/x/player/pagelist?bvid={bvid}
 		}
 
+		// 同一个 UP 下按作品 ID 分组：组内超过一个 entry 就是多P视频。
+		private readonly record struct WorkKey(long OwnerId, string OwnerName, long WorkId, bool IsEp, string Fallback);
+		private sealed record WorkInfo(bool IsMultiPart, string CommonWorkName);
+
 		public static void Process(string path) {
 			if (!Path.Exists(path)) {
 				Logger.Error($"Provided directory does not exist: \"{path}\".");
@@ -61,7 +65,8 @@ namespace BilibiliMobileDownloadProcessor {
 				return;
 			}
 
-			var items = Scan([path]);
+			var items = Scan([path]).ToList();
+			var workInfos = BuildWorkInfos(items);
 
 			var options = new ParallelOptions {
 				MaxDegreeOfParallelism = 4
@@ -71,7 +76,7 @@ namespace BilibiliMobileDownloadProcessor {
 			Parallel.ForEach(items, options, (item) => {
 				FilePath? res = null;
 				try {
-					res = Combine(item, ppath.Parent);
+					res = Combine(item, ppath.Parent, workInfos[GetWorkKey(item)]);
 				}
 				catch (Exception ex) {
 					lock (lk) {
@@ -91,7 +96,46 @@ namespace BilibiliMobileDownloadProcessor {
 			});
 		}
 
-		static FilePath? Combine(BiliEntry item, FilePath path) {
+		static Dictionary<WorkKey, WorkInfo> BuildWorkInfos(List<BiliEntry> items) {
+			var result = new Dictionary<WorkKey, WorkInfo>();
+			foreach (var group in items.GroupBy(GetWorkKey)) {
+				BiliEntry first = group.First();
+				result[group.Key] = new WorkInfo(group.Count() > 1, GetCommonWorkName(first));
+			}
+			return result;
+		}
+
+		static WorkKey GetWorkKey(BiliEntry item) {
+			string ownerName = item.owner_name ?? string.Empty;
+			if (item.ep is BiliEntry.EpData) {
+				long id = item.season_id != 0 ? item.season_id : item.avid;
+				string fallback = id != 0 ? string.Empty : (!string.IsNullOrEmpty(item.bvid) ? item.bvid : (item.title ?? string.Empty));
+				return new WorkKey(item.owner_id, ownerName, id, true, fallback);
+			}
+			long pageId = item.avid;
+			string pageFallback = pageId != 0 ? string.Empty : (!string.IsNullOrEmpty(item.bvid) ? item.bvid : (item.title ?? string.Empty));
+			return new WorkKey(item.owner_id, ownerName, pageId, false, pageFallback);
+		}
+
+		static string GetCommonWorkName(BiliEntry item) {
+			if (item.ep is BiliEntry.EpData)
+				return NormalizeWorkName($"[{item.season_id}]{item.title}");
+			if (item.page_data is BiliEntry.PageData pd) {
+				string title = string.IsNullOrEmpty(item.title) ? pd.part : item.title;
+				return NormalizeWorkName($"[{item.avid}]{title}");
+			}
+			return NormalizeWorkName($"[{item.avid}]{item.title}");
+		}
+
+		static string NormalizeWorkName(string name) {
+			if (name.Length > 81) {
+				name = name[..80];
+				name += "…";
+			}
+			return name;
+		}
+
+		static FilePath? Combine(BiliEntry item, FilePath path, WorkInfo workInfo) {
 			var finalpath = path / "bilibili";
 			//if (item.OwnerId != 0 || !string.IsNullOrEmpty(item.OwnerName)) {
 			finalpath /= $"[{item.owner_id}]{item.owner_name}";
@@ -119,6 +163,8 @@ namespace BilibiliMobileDownloadProcessor {
 			else {
 				throw new Exception("ep and page_data are both null");
 			}
+			if (workInfo.IsMultiPart)
+				work_name = workInfo.CommonWorkName;
 			if (work_name.Length > 81) {
 				work_name = work_name[..80];
 				work_name += "…";
@@ -127,8 +173,14 @@ namespace BilibiliMobileDownloadProcessor {
 				part_filename = part_filename[..80];
 				part_filename += "…";
 			}
-			finalpath /= work_name;
-			finalpath /= $"{part_filename}.mp4";
+			if (workInfo.IsMultiPart) {
+				finalpath /= work_name;
+				finalpath /= $"{part_filename}.mp4";
+			}
+			else {
+				// 单P视频不建作品文件夹，直接以作品名放在 UP 目录下。
+				finalpath /= $"{work_name}.mp4";
+			}
 
 			PathHelper.EnsureFileCanExsist(finalpath);
 
